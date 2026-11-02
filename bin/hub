@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""Idempotent launcher for MixHub / Agent Session Hub (TUI, tmux workspace, handoff, sync-rules, notify, and Web daemon).
+
+Thin entry point: the dispatcher and every command live in `mixhub.cli` (`main`, `daemon`, `sessions`, `tools`, `workspace`).
+"""
+import os
+import subprocess
+import sys
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from mixhub.cli.main import main  # noqa: E402
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)

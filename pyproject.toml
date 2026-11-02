@@ -1,0 +1,49 @@
+[project]
+name = "mixhub-cli"  # "mixhub" is refused by PyPI as too close to an existing name; the command is still `mixhub`
+dynamic = ["version"]
+description = "One switchboard for Claude Code, Gemini (AGY), Codex and OpenCode sessions: a tmux workspace, a web workbench and handoff between agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "MixHub Contributors" }
+]
+keywords = ["ai-agents", "claude-code", "codex", "gemini", "opencode", "tmux", "terminal", "handoff"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ShinoKana/mixhub"
+Repository = "https://github.com/ShinoKana/mixhub.git"
+Issues = "https://github.com/ShinoKana/mixhub/issues"
+
+[project.scripts]
+# Only `mixhub`: `hub` is also GitHub's CLI. A source checkout's `bin/hub` keeps the short name for its owner.
+mixhub = "mixhub.cli.main:entry"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "mixhub/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+# Only the `mixhub` package (code + `mixhub/web/static`). The repo-root shims (`server.py`, `tui.py`, ...) and
+# `bin/` serve a source checkout; installed, the console scripts above and `python -m mixhub.*` replace them.
+packages = ["mixhub"]
+exclude = ["**/__pycache__", "**/*.py[cod]"]

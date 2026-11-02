@@ -1,0 +1,63 @@
+# Runtime & user session state (never committed)
+Preferences
+active_working_set.json
+unsent_drafts.json
+session_names.json
+data/
+screenshots/
+*.log
+*.bak
+.hub.pid
+.hub.lock
+hub_state.json
+ACCEPTANCE.md
+/index.html
+bench_out.json
+
+# Local preferences & backups (keep Preferences.example tracked)
+/Preferences
+/Preferences.*
+!/Preferences.example
+
+# All PID & lock files (covers both .hub.pid and hub.pid)
+*.pid
+*.lock
+
+# Internal dated design notes & local scratch docs
+docs/
+/docs/internal/
+/docs/*_20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]*.md
+*.local.*
+*.orig
+
+# Python & OS caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+
+# Kept on the maintainer's machine only (not part of the public tree)
+MIXHUB_CHRONICLE.md
+voice_transcribe.py
+tests/test_voice_transcribe.py
+slim_storage.py
+mixhub/ops/slim_storage.py
+
+# Agent worktrees
+.claude/
+
+# maintainer-local, not part of the release
+package.json
+bin/mixhub.js
+scripts/git_steward.py
+tests/test_git_steward.py
+# local launchers for processes started before the root scripts moved
+/tui.py
+/slack_bridge.py
+
+# Maintainer-only two-way extras (Slack bridge, Telegram approvals); imports mixhub, never the reverse
+/mixhub_private/

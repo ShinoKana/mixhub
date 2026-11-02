@@ -1,0 +1,10 @@
+{
+  "language": "auto",
+  "host_label": "work-laptop",
+  "trust_all_workspaces": false,
+  "trust_roots": ["~/workspace"],
+  "agy_mouse_shim": "auto",
+  "dispatch_scripts": ["my-agent-runner"],
+  "update_check": true,
+  "auto_sleep_hours": 0
+}
