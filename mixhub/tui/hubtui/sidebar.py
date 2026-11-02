@@ -2,6 +2,7 @@
 """`mixhub.tui.hubtui.sidebar`: The sidebar session list: provider filtering, display rows, selection bounds and scrolling."""
 from __future__ import annotations
 
+import os
 import re
 import threading
 
@@ -163,11 +164,17 @@ class SidebarListMixin:
                     self.selected_idx = idx
                     return cand
             t_label = {"claude": "Claude", "agy": "Gemini", "codex": "Codex", "deepseek": "DeepSeek"}.get(ht_tool, (ht_tool or "Agent").capitalize())
+            # Not matched to a session yet: the header pane starts in the CLI's folder
+            try:
+                cwd = os.getcwd()
+            except OSError:
+                cwd = os.path.expanduser("~")
             return {
                 "tool": ht_tool or "claude",
                 "id": ht_id or "new",
                 "title": f"New {t_label} Session",
-                "shortCwd": "~",
+                "cwd": cwd,
+                "shortCwd": cwd.replace(os.path.expanduser("~"), "~", 1),
                 "isLive": True,
                 "agentState": "wait_input",
             }

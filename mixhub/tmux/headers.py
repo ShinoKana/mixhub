@@ -126,7 +126,7 @@ def ensure_hubpool_window_header(wname: str, tool: str, sid: str, env: dict | No
             else:
                 hdr_cmd = _commands._header_cmd(tool, sid)
                 subprocess.run(
-                    ["tmux", "-L", "hubpool", "split-window", "-d", "-t", pane_id, "-vb", "-l", "2", hdr_cmd],
+                    ["tmux", "-L", "hubpool", "split-window", "-d", "-t", pane_id, "-vb", "-l", "2", "-c", cur_path, hdr_cmd],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     env=run_env,

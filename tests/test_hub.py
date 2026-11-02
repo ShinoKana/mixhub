@@ -3286,6 +3286,37 @@ class OpenCodeTabWindowTest(unittest.TestCase):
             self.assertIsNone(tui.follow_opencode_tab(tab, socket=self.sock))
 
 
+class NewSessionHeaderCwdTest(unittest.TestCase):
+    """A new session's header shows the folder it runs in before the first message, not `~`."""
+
+    def test_header_pane_starts_in_the_cli_folder(self):
+        from mixhub.tmux import headers
+
+        tmp = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            out = f"%5|0|40|zsh -c claude|{tmp}\n" if "list-panes" in cmd else ""
+            return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+        with patch("mixhub.tmux.headers.subprocess.run", side_effect=fake_run):
+            headers.ensure_hubpool_window_header("w-claude-new-1", "claude", "new-1", env={})
+        split = next(c for c in calls if "split-window" in c)
+        self.assertEqual(split[split.index("-c") + 1], tmp)
+
+    def test_unmatched_new_session_header_shows_its_folder(self):
+        import tui
+
+        app = tui.HubTUI.__new__(tui.HubTUI)
+        app.header_only, app.header_target, app.sessions, app.selected_idx = True, ("claude", "new-1"), [], -1
+        proj = os.path.join(os.path.expanduser("~"), "proj")
+        with patch("os.getcwd", return_value=proj):
+            s = app.current_session()
+        self.assertEqual((s["cwd"], s["shortCwd"]), (proj, "~/proj"))
+
+
 class HomeShellTest(unittest.TestCase):
     """Home keeps a plain shell under the reader; leaving Home parks it in a hidden window, still running."""
 
