@@ -96,7 +96,7 @@ mixhub update --check  # only say whether a newer version exists
 | Codex | `~/.codex/sessions/` rollouts + state DB | `codex resume <id>` |
 | OpenCode | `opencode.db` (read-only) | `opencode -s <id>` |
 
-`✎ New session` opens the new session in the working directory of the session selected in the sidebar, so to start in a project folder, click one of that folder's sessions first. With nothing selected it uses the folder you ran `mixhub` from. It can also start Claude Code with another model behind it (DeepSeek, Kimi, Qwen and GLM presets); the badge shows which model a session uses.
+`✎ New session` opens the new session in the working directory of the session selected in the sidebar, so to start in a project folder, click one of that folder's sessions first. With nothing selected, including the `LAUNCH` buttons on Home, it uses the folder you ran `mixhub` from. It can also start Claude Code with another model behind it (DeepSeek, Kimi, Qwen and GLM presets); the badge shows which model a session uses.
 
 ## The workspace
 
