@@ -1,7 +1,7 @@
 [project]
 name = "mixhub-cli"  # "mixhub" is refused by PyPI as too close to an existing name; the command is still `mixhub`
 dynamic = ["version"]
-description = "One switchboard for Claude Code, Gemini (AGY), Codex and OpenCode sessions: a tmux workspace, a web workbench and handoff between agents."
+description = "A terminal sidebar for your Claude Code, Codex, Gemini and OpenCode sessions."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

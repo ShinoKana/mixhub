@@ -1,0 +1,28 @@
+name: publish
+
+# Push a tag like v0.2.1 to build and upload that version to PyPI.
+# PyPI trusts this workflow (Trusted Publishing), so no token is stored anywhere.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Tag matches the package version
+        run: |
+          v=$(python -c "import mixhub; print(mixhub.__version__)")
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, package $v"; exit 1; }
+      - name: Build
+        run: |
+          python -m pip install -q build
+          python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
