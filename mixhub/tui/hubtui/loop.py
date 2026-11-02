@@ -501,6 +501,7 @@ class EventLoopMixin:
             while True:
                 if self.reader_only and not getattr(self, "header_only", False):
                     self._sync_reader_selection()
+                    self._adopt_home_shell_agent()
                     self._sync_home_shell()
                 elif getattr(self, "header_only", False):
                     self._check_orphan_header_and_exit()

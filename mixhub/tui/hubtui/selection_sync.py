@@ -10,7 +10,8 @@ from mixhub.tmux import new_sessions as _new_sessions
 from mixhub.tmux import outer as _outer
 from mixhub.tmux import pool as _pool
 from mixhub.tmux.commands import hubpool_win_name
-from mixhub.tmux.home_shell import sync_home_shell
+from mixhub.tmux.home_shell import adopt_home_shell_pane, finished_adopted_windows, home_shell_agent, sync_home_shell
+from mixhub.tmux.onexit import handle_cli_on_exit
 from mixhub.tmux.new_sessions import _NEW_HUBPOOL_SESSIONS, _NEW_WIN_RE, _make_new_hubpool_session_dict
 from mixhub.tmux.outer import current_outer_session_name, current_pool_session_name
 from mixhub.tmux.pool import _HUBPOOL_WINS_CACHE
@@ -32,6 +33,29 @@ class SelectionSyncMixin:
         self._home_shell_home = home
         socket = os.path.basename(os.environ.get("TMUX", "").split(",")[0]) or "hubpool"
         sync_home_shell(home, os.environ.get("TMUX_PANE", ""), socket=socket)
+
+    def _adopt_home_shell_agent(self) -> None:
+        """`--reader`: an agent started from the Home shell moves to its own window, the way `✎ New session` opens
+        one, so Home keeps a free command line. Once that agent exits, its window closes the usual way."""
+        if not os.environ.get("TMUX") or getattr(self, "_isolated_state", False):
+            return
+        now = time.monotonic()
+        if now - getattr(self, "_home_agent_check_ts", 0.0) < 1.0:
+            return
+        self._home_agent_check_ts = now
+        socket = os.path.basename(os.environ.get("TMUX", "").split(",")[0]) or "hubpool"
+        for wname, tool, sid in finished_adopted_windows(socket):
+            handle_cli_on_exit(tool, sid, wname, 0)
+        if self.selected_idx != -1:
+            return
+        found = home_shell_agent(socket)
+        if not found:
+            return
+        pane, tool, cwd = found
+        suffix = f"new-{int(time.time()) % 100000}"
+        wname = f"w-{tool}-{suffix}"
+        if adopt_home_shell_pane(pane, wname, tool, suffix, socket=socket):
+            self._show_new_hubpool_window(tool, suffix, wname, cwd, None)
 
     def _allow_tmux_side_effects(self) -> bool:
         if not getattr(self, "_isolated_state", False):

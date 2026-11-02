@@ -1997,8 +1997,9 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
 
     def test_new_window_collection_preserves_drafts_and_drops_only_abandoned_blank(self):
         tui._HUBPOOL_WINS_CACHE["ts"] = 0.0
-        windows = {f"w-claude-new-{i}": "" for i in range(1, 9)}
+        windows = {f"w-claude-new-{i}": "" for i in range(1, 10)}
         windows["w-claude-new-2"] = "a draft " * 10
+        adopted = {"w-claude-new-9"}  # moved out of the Home shell: blank but never closed for the user
         now = time.time()
         for w in windows:
             sid = tui._NEW_WIN_RE.match(w).group(2)
@@ -2008,15 +2009,16 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                 "claude", sid, w, created_ts=now if sid == "new-5" else now - 10)
         def fake_run(cmd, **kwargs):
             self.assertIn("list-windows", cmd)
-            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}", cmd)
-            return tui.subprocess.CompletedProcess(cmd, 0, stdout="\n".join(f"{w}|2|{int(w.endswith('-3'))}|{int(now)}" for w in windows))
+            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}", cmd)
+            return tui.subprocess.CompletedProcess(cmd, 0, stdout="\n".join(
+                f"{w}|2|{int(w.endswith('-3'))}|{int(now)}|{'claude new-9' if w in adopted else ''}" for w in windows))
         def inspect(w):
             if w.endswith("-6"):
                 raise RuntimeError("capture failed")
             if w.endswith("-7"):
                 return "Explain this codebase"
             return windows[w]
-        self.hub._save_working_set({f"claude:new-{i}" for i in range(1, 9)})
+        self.hub._save_working_set({f"claude:new-{i}" for i in range(1, 10)})
         with patch.dict(os.environ, {"TMUX": "test-pool"}), patch("mixhub.tui.paths.ROOT", str(self.root)), \
              patch("tui.time.time", return_value=now), \
              patch("tui.subprocess.run", new=fake_run), patch("tui.subprocess.Popen") as popen, \
@@ -2024,7 +2026,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
              patch("mixhub.tmux.new_sessions._inspect_new_hubpool_window_draft", side_effect=inspect), \
              patch("mixhub.tmux.new_sessions._new_window_conversation_started", return_value=False):
             rows = {s["id"]: s for s in tui._collect_live_new_hubpool_sessions(allow_probe=True)}
-            self.assertEqual(set(rows), {f"new-{i}" for i in (2, 3, 4, 6, 7)})
+            self.assertEqual(set(rows), {f"new-{i}" for i in (2, 3, 4, 6, 7, 9)})
             self.assertTrue(rows["new-2"]["hasDraft"])
             self.assertEqual(rows["new-2"]["title"], tui.disp_trunc(windows["w-claude-new-2"], 48))
             self.assertEqual(popen.call_count, 3)
@@ -2035,7 +2037,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
             for i in (1, 5, 8):
                 self.assertNotIn(f"w-claude-new-{i}", tui._NEW_HUBPOOL_SESSIONS)
                 self.assertNotIn(f"w-claude-new-{i}", tui._HUBPOOL_WINS_CACHE["wins"])
-            self.assertEqual(self.hub.working_set(), {f"claude:new-{i}" for i in (2, 3, 4, 6, 7)})
+            self.assertEqual(self.hub.working_set(), {f"claude:new-{i}" for i in (2, 3, 4, 6, 7, 9)})
 
     def test_new_window_whose_conversation_started_is_never_closed(self):
         # The draft box empties the moment a message is sent; switching away before the window is matched to its
@@ -2314,7 +2316,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
         activity = int(now - 1380)
         wname = "w-agy-new-123"
         def fake_run(cmd, **kwargs):
-            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}", cmd)
+            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}", cmd)
             return tui.subprocess.CompletedProcess(cmd, 0, stdout=f"{wname}|2|0|{activity}\n")
         with patch.dict(os.environ, {"TMUX": "test-pool"}), \
              patch("tui.subprocess.run", new=fake_run), patch("tui.subprocess.Popen") as popen, \

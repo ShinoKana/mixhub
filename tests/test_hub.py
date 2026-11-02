@@ -3340,6 +3340,66 @@ class HomeShellTest(unittest.TestCase):
         hdr = self.tmux("list-panes", "-t", "pool:w-claude-abcdefabcdef", "-F", "#{pane_height}").stdout.split()
         self.assertEqual(hdr[0], str(tui.HUB_HDR_ROWS))
 
+    def test_foreground_agent_in_the_shell(self):
+        from mixhub.tmux.home_shell import foreground_agent
+
+        ps = lambda args, fg=True: f"  501   {501 if fg else 700} {args}\n"
+        self.assertIsNone(foreground_agent(ps("-zsh")))
+        self.assertEqual(foreground_agent(ps("-zsh", fg=False) + ps("claude --resume abc")), "claude")
+        self.assertEqual(foreground_agent(ps("node /opt/homebrew/bin/codex")), "codex")
+        self.assertEqual(foreground_agent(ps("/opt/opencode/bin/opencode")), "opencode")
+        self.assertEqual(foreground_agent(ps("agy")), "agy")
+        # one-shot runs and agents left in the background stay where they are
+        self.assertIsNone(foreground_agent(ps("claude -p hi")))
+        self.assertIsNone(foreground_agent(ps("codex exec fix it")))
+        self.assertIsNone(foreground_agent(ps("claude", fg=False) + ps("vim")))
+
+    def test_agent_started_in_the_shell_moves_out_and_home_gets_a_fresh_shell(self):
+        import tui
+        from mixhub.tmux.home_shell import adopt_home_shell_pane, finished_adopted_windows, home_shell_agent
+
+        def wait_for(fn, timeout=15.0):
+            end = time.time() + timeout
+            while time.time() < end:
+                got = fn()
+                if got:
+                    return got
+                time.sleep(0.2)
+            return fn()
+
+        tmp = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        os.makedirs(os.path.join(tmp, "bin"))
+        os.makedirs(os.path.join(tmp, "proj"))
+        fake = os.path.join(tmp, "bin", "claude")
+        with open(fake, "w") as f:
+            f.write("#!/bin/sh\nsleep 600\n")
+        os.chmod(fake, 0o755)
+
+        tui.sync_home_shell(True, self.reader, socket=self.sock)
+        shell = self.reader_panes()[1]
+        self.assertIsNone(home_shell_agent(self.sock))
+        self.tmux("send-keys", "-t", shell, f"cd {tmp}/proj && {fake} --resume abc", "Enter")
+        found = wait_for(lambda: home_shell_agent(self.sock))
+        self.assertEqual(found, (shell, "claude", os.path.join(tmp, "proj")))
+
+        self.assertTrue(adopt_home_shell_pane(shell, "w-claude-new-123", "claude", "new-123", socket=self.sock))
+        moved = self.tmux("display-message", "-p", "-t", shell, "#{window_name}").stdout.strip()
+        self.assertEqual(moved, "w-claude-new-123")
+        self.assertEqual(self.reader_panes(), [self.reader])
+        self.assertIsNone(home_shell_agent(self.sock))  # the moved shell is no longer Home's
+        self.assertEqual(finished_adopted_windows(self.sock), [])  # its agent still runs
+
+        tui.sync_home_shell(False, self.reader, socket=self.sock)
+        tui.sync_home_shell(True, self.reader, socket=self.sock)
+        panes = self.reader_panes()
+        self.assertEqual(len(panes), 2)
+        self.assertNotEqual(panes[1], shell)  # Home gets a fresh, free shell
+
+        self.tmux("send-keys", "-t", shell, "C-c")
+        done = wait_for(lambda: finished_adopted_windows(self.sock))
+        self.assertEqual(done, [("w-claude-new-123", "claude", "new-123")])
+
     def test_shell_takes_half_and_keeps_the_height_it_was_dragged_to(self):
         import tui
 

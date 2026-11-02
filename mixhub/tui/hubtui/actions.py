@@ -79,6 +79,11 @@ class SessionActionsMixin:
         suffix = f"new-{int(time.time()) % 100000}"
         new_wname = f"w-{target}-{suffix}"
         launch_cmd = _commands._build_hubpool_cli_wrapper_cmd(target, suffix, new_wname, cwd, inner_cmd)
+        self._show_new_hubpool_window(target, suffix, new_wname, cwd, launch_cmd)
+
+    def _show_new_hubpool_window(self, target: str, suffix: str, new_wname: str, cwd: str, launch_cmd: str | None):
+        """List a new `w-<tool>-new-N` window at the top of `Active`, select it and switch the right pane to it.
+        `launch_cmd` starts the window; None means it already exists (an agent moved out of the Home shell)."""
         new_s = _make_new_hubpool_session_dict(target, suffix, new_wname, cwd=cwd, created_ts=time.time())
         self._mark_session_seen(new_s)
         _NEW_HUBPOOL_SESSIONS[new_wname] = dict(new_s)
@@ -104,13 +109,14 @@ class SessionActionsMixin:
             cur_path = env.get("PATH", "")
             if local_bin not in cur_path.split(":"):
                 env["PATH"] = f"{local_bin}:{cur_path}" if cur_path else local_bin
-            env_args = _deepseek_window_env_args(env) if target == "deepseek" else []
-            subprocess.run(
-                ["tmux", "-L", "hubpool", "new-window", "-t", "pool:", "-n", new_wname, "-c", cwd, *env_args, launch_cmd],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                env=env,
-            )
+            if launch_cmd is not None:
+                env_args = _deepseek_window_env_args(env) if target == "deepseek" else []
+                subprocess.run(
+                    ["tmux", "-L", "hubpool", "new-window", "-t", "pool:", "-n", new_wname, "-c", cwd, *env_args, launch_cmd],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=env,
+                )
             _headers.ensure_hubpool_window_header(new_wname, target, suffix, env=env)
             subprocess.run(
                 ["tmux", "-L", "hubpool", "select-window", "-t", f"{pool_sess}:{new_wname}"],

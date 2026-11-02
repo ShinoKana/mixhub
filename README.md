@@ -104,7 +104,7 @@ mixhub update --check  # only say whether a newer version exists
 
 **Right pane.** Clicking a session that is running in MixHub switches to its live CLI window. Clicking any other session shows a read-only transcript preview with a turn minimap; `[ Resume ↵ ]` starts the CLI in place, and `[ Go to Tab ]` jumps to a session that is running in another Terminal tab. Each live window has a two-row header with the working directory, session id and title.
 
-**Home.** With nothing selected, the right pane holds a plain login shell under the preview, for quick commands without leaving the workspace. Clear it the usual way (`clear` or Ctrl+L).
+**Home.** With nothing selected, the right pane holds a plain login shell under the preview, for quick commands without leaving the workspace. Clear it the usual way (`clear` or Ctrl+L). An agent started there (`claude`, `codex`, `opencode`, `agy`) moves to its own window in `Active`, the same as `✎ New session`, and Home gets a fresh shell; one-shot runs like `claude -p` stay in the shell.
 
 **Footer.** Used `5h` and weekly quota with reset times for each agent that has at least one session on this machine, plus CPU and memory. Codex quota comes from its own session files. For exact Claude Code and Gemini (AGY) numbers, point their status line at MixHub, which records the quota each agent reports and prints a short status line back:
 

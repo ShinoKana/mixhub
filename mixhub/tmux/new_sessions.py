@@ -241,7 +241,7 @@ def _collect_live_new_hubpool_sessions(allow_probe: bool = False) -> list[dict]:
             env.pop("TMUX", None)
             try:
                 res = subprocess.run(
-                    ["tmux", "-L", "hubpool", "list-windows", "-t", "pool", "-F", "#{window_name}|#{window_panes}|#{window_active}|#{window_activity}"],
+                    ["tmux", "-L", "hubpool", "list-windows", "-t", "pool", "-F", "#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -295,7 +295,9 @@ def _collect_live_new_hubpool_sessions(allow_probe: bool = False) -> list[dict]:
                             continue
                         if draft_text:
                             existing["everDraft"] = True
-                        if not draft_text and not win_is_active and active_sel_id != new_id:
+                        # Moved out of the Home shell: whatever the user ran there (a resume, say) is theirs to close
+                        adopted = len(parts) > 4 and bool(parts[4].strip())
+                        if not draft_text and not win_is_active and active_sel_id != new_id and not adopted:
                             # A sent message empties the draft box too: only a window whose agent has no conversation
                             # yet is abandoned. Unknown counts as in use.
                             try:
