@@ -110,6 +110,10 @@ COMPLETED_VERB_RE = re.compile(
     r"^[\u2800-\u28ff✻✶✳✢✽·*•]\s*(?:Cooked|Worked|Baked|Brewed|Churned|Cogitated|Thought|Ran|Done)\s+for\s+\d+",
     re.I,
 )
+# Codex's collapsed tool calls in the history ("• Ran python3 - <<'PY' …") look like a spinner but are done
+CODEX_HISTORY_RE = re.compile(
+    r"^•\s*(?:Ran|Exited|Explored|Viewed|Edited|Read|Searched|Listed|Called|Updated|Added|Deleted|Wrote|Waited)\b"
+)
 TITLE_BUSY_RE = re.compile(r"^[\u2800-\u28ff]")
 CMD_DOLLAR_RE = re.compile(r"^\$\s+(?P<cmd>.+)$")
 GEMINI_EXEC_RE = re.compile(r"Allow execution of:?\s*['\"`]?(?P<cmd>[^'\"`\n?]+)", re.I)

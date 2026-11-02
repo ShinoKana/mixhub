@@ -15,6 +15,7 @@ from mixhub.probe.menus import (
 from mixhub.probe.patterns import (
     CLAUDE_HEAD_RE,
     CMD_DOLLAR_RE,
+    CODEX_HISTORY_RE,
     COMPLETED_VERB_RE,
     CONTEXT_LINES,
     FOOTER_HINT_RE,
@@ -419,7 +420,7 @@ def classify_pane_text(
 
     # Rule 6: Working / active spinner / "esc to interrupt"
     for ln in reversed(tail):
-        if COMPLETED_VERB_RE.match(ln):
+        if COMPLETED_VERB_RE.match(ln) or CODEX_HISTORY_RE.match(ln):
             continue
         if _match_any(comp["working_patterns"], ln) or WORKING_RE.search(ln) or SPINNER_RE.match(ln):
             return {

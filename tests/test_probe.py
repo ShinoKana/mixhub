@@ -193,6 +193,32 @@ Allow deleting cached build artifacts? [y/N]
 """
         self.assertEqual(probe.classify_pane_text(cooked_screen)["state"], "idle")
 
+        # 3b. A finished Codex turn: its collapsed tool calls ("• Ran … …") are history, not a spinner
+        codex_done = """
+• Ran python3 - <<'PY' …
+  └ main_compact.pdf
+    + Show details
+• Shortened the statement by two lines; references still start on the next page.
+  Worked for 1m 13s • 23:02
+  ↳ Recap: statement shortened, PDF delivered.
+› Ask Codex to do anything
+  GPT-6.1 Terra xhigh · ~/paper/draft · tweak the paper
+  ← for agents · ? for shortcuts
+"""
+        self.assertEqual(probe.classify_pane_text(codex_done)["state"], "idle")
+        codex_cut_short = """
+• Exited (status 1) python3 - <<'PY' …
+• Ran /usr/bin/python3 - <<'PY' …
+› Ask Codex to do anything
+"""
+        self.assertEqual(probe.classify_pane_text(codex_cut_short)["state"], "idle")
+        codex_working = """
+• Ran python3 - <<'PY' …
+• Working (12s • esc to interrupt)
+› Ask Codex to do anything
+"""
+        self.assertEqual(probe.classify_pane_text(codex_working)["state"], "working")
+
         # 4. Numbered markdown list in assistant transcript followed by prompt -> idle
         transcript_list = """
 ⏺ Summary of changes:
