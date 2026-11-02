@@ -4,7 +4,6 @@ import json
 import os
 import shlex
 import tempfile
-import tomllib
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -12,6 +11,11 @@ from unittest import mock
 
 from mixhub.channels import cli
 from mixhub.channels.hooks import generate_official_hook_config
+
+try:
+    import tomllib
+except ImportError:  # Python 3.10
+    tomllib = None
 
 
 class FakeResponse(io.BytesIO):
@@ -91,6 +95,7 @@ class HookNotifyTest(unittest.TestCase):
         self.assertEqual(len(texts), 1)
         self.assertIn("Build fixed, 42 tests pass.", texts[0])
 
+    @unittest.skipIf(tomllib is None, "needs tomllib (Python 3.11+)")
     def test_codex_notify_sends_the_last_reply(self):
         self.configure_telegram()
         argv = tomllib.loads(generate_official_hook_config()["codex_config_toml"])["notify"]
