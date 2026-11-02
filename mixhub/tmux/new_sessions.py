@@ -241,7 +241,7 @@ def _collect_live_new_hubpool_sessions(allow_probe: bool = False) -> list[dict]:
             env.pop("TMUX", None)
             try:
                 res = subprocess.run(
-                    ["tmux", "-L", "hubpool", "list-windows", "-t", "pool", "-F", "#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}"],
+                    ["tmux", "-L", "hubpool", "list-windows", "-t", "pool", "-F", "#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}|#{pane_current_path}"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -283,11 +283,16 @@ def _collect_live_new_hubpool_sessions(allow_probe: bool = False) -> list[dict]:
                     m_new = _NEW_WIN_RE.match(w)
                     if m_new:
                         new_id = m_new.group(2)
+                        win_cwd = parts[5].strip() if len(parts) > 5 else ""
                         if w not in _NEW_HUBPOOL_SESSIONS:
                             created_ts = float(parts[3]) if len(parts) > 3 and parts[3].isdigit() and int(parts[3]) > 0 else None
                             _NEW_HUBPOOL_SESSIONS[w] = _make_new_hubpool_session_dict(
-                                m_new.group(1), new_id, w, created_ts=created_ts)
+                                m_new.group(1), new_id, w, cwd=win_cwd or None, created_ts=created_ts)
                         existing = _NEW_HUBPOOL_SESSIONS[w]
+                        if win_cwd and existing.get("cwd") != win_cwd:
+                            # Registered from its window name alone (a selection handed over by another pane)
+                            existing["cwd"] = win_cwd
+                            existing["shortCwd"] = win_cwd.replace(os.path.expanduser("~"), "~")
                         try:
                             draft_text = _inspect_new_hubpool_window_draft(w)
                         except (OSError, RuntimeError, subprocess.TimeoutExpired):

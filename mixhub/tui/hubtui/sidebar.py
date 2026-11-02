@@ -157,28 +157,34 @@ class SidebarListMixin:
                 cur = self.sessions[self.selected_idx]
                 cur_id = str(cur.get("id") or "")
                 if (cur_id == ht_id or (ht_id and cur_id.startswith(ht_id))) and (not ht_tool or cur.get("tool") == ht_tool):
-                    return cur
+                    return self._with_header_cwd(cur)
             for idx, cand in enumerate(self.sessions):
                 cid = str(cand.get("id") or "")
                 if (cid == ht_id or (ht_id and cid.startswith(ht_id))) and (not ht_tool or cand.get("tool") == ht_tool):
                     self.selected_idx = idx
-                    return cand
+                    return self._with_header_cwd(cand)
             t_label = {"claude": "Claude", "agy": "Gemini", "codex": "Codex", "deepseek": "DeepSeek"}.get(ht_tool, (ht_tool or "Agent").capitalize())
-            # Not matched to a session yet: the header pane starts in the CLI's folder
-            try:
-                cwd = os.getcwd()
-            except OSError:
-                cwd = os.path.expanduser("~")
-            return {
+            return self._with_header_cwd({
                 "tool": ht_tool or "claude",
                 "id": ht_id or "new",
                 "title": f"New {t_label} Session",
-                "cwd": cwd,
-                "shortCwd": cwd.replace(os.path.expanduser("~"), "~", 1),
                 "isLive": True,
                 "agentState": "wait_input",
-            }
+            })
         if 0 <= self.selected_idx < len(self.sessions):
             return self.sessions[self.selected_idx]
         return None
+
+    @staticmethod
+    def _with_header_cwd(s: dict) -> dict:
+        """`--header` of a session not matched to its transcript yet: the folder is the header pane's own, which
+        starts where the CLI below it runs (the row from the window name alone only knows `~`)."""
+        if str(s.get("id") or "").startswith("new") and (s.get("synthetic") or not s.get("cwd")):
+            try:
+                cwd = os.getcwd()
+            except OSError:
+                return s
+            s["cwd"] = cwd
+            s["shortCwd"] = cwd.replace(os.path.expanduser("~"), "~", 1)
+        return s
 

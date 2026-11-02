@@ -2009,7 +2009,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                 "claude", sid, w, created_ts=now if sid == "new-5" else now - 10)
         def fake_run(cmd, **kwargs):
             self.assertIn("list-windows", cmd)
-            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}", cmd)
+            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}|#{pane_current_path}", cmd)
             return tui.subprocess.CompletedProcess(cmd, 0, stdout="\n".join(
                 f"{w}|2|{int(w.endswith('-3'))}|{int(now)}|{'claude new-9' if w in adopted else ''}" for w in windows))
         def inspect(w):
@@ -2316,7 +2316,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
         activity = int(now - 1380)
         wname = "w-agy-new-123"
         def fake_run(cmd, **kwargs):
-            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}", cmd)
+            self.assertIn("#{window_name}|#{window_panes}|#{window_active}|#{window_activity}|#{@mixhub_adopted}|#{pane_current_path}", cmd)
             return tui.subprocess.CompletedProcess(cmd, 0, stdout=f"{wname}|2|0|{activity}\n")
         with patch.dict(os.environ, {"TMUX": "test-pool"}), \
              patch("tui.subprocess.run", new=fake_run), patch("tui.subprocess.Popen") as popen, \

@@ -3315,6 +3315,33 @@ class NewSessionHeaderCwdTest(unittest.TestCase):
         with patch("os.getcwd", return_value=proj):
             s = app.current_session()
         self.assertEqual((s["cwd"], s["shortCwd"]), (proj, "~/proj"))
+        # a row handed over through the active selection has an empty folder
+        app.sessions = [{"tool": "claude", "id": "new-1", "title": "", "path": "", "cwd": "", "shortCwd": ""}]
+        with patch("os.getcwd", return_value=proj):
+            s = app.current_session()
+        self.assertEqual((s["cwd"], s["shortCwd"]), (proj, "~/proj"))
+        # the row a header builds from the window name alone only knows `~`
+        app.sessions = [tui._make_new_hubpool_session_dict("claude", "new-1", "w-claude-new-1")]
+        with patch("os.getcwd", return_value=proj):
+            s = app.current_session()
+        self.assertEqual((s["cwd"], s["shortCwd"]), (proj, "~/proj"))
+
+    def test_discovered_new_window_carries_its_folder(self):
+        # Every process (sidebar, reader, each header) finds `w-<tool>-new-N` windows on its own
+        from mixhub.tmux import new_sessions
+
+        proj = os.path.join(os.path.expanduser("~"), "proj")
+
+        def fake_run(cmd, **kwargs):
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"w-claude-new-7|2|1|{int(time.time())}||{proj}\n")
+
+        with patch.dict(os.environ, {"TMUX": "test-pool"}), \
+             patch.dict(new_sessions._NEW_HUBPOOL_SESSIONS, {}, clear=True), \
+             patch.dict(new_sessions._HUBPOOL_WINS_CACHE, {"ts": 0.0}, clear=True), \
+             patch("mixhub.tmux.new_sessions.subprocess.run", new=fake_run), \
+             patch("mixhub.tmux.new_sessions._inspect_new_hubpool_window_draft", return_value=""):
+            rows = new_sessions._collect_live_new_hubpool_sessions(allow_probe=True)
+        self.assertEqual([(r["id"], r["cwd"], r["shortCwd"]) for r in rows], [("new-7", proj, "~/proj")])
 
 
 class HomeShellTest(unittest.TestCase):
