@@ -37,17 +37,19 @@ What it doesn't do: it doesn't create worktrees or touch git, doesn't patch the 
 
 ## Similar tools
 
-| | Agents | Runs in | Git worktrees | Per-session status | Sessions started elsewhere |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| MixHub | Claude Code, Codex, Gemini, OpenCode | any terminal (needs tmux) | no | from session files | listed |
-| [Claude Code Agent View](https://code.claude.com/docs/en/agent-view) | Claude Code | the `claude` CLI | background sessions by default | yes | only after `/bg` or `claude --bg` |
-| [cmux](https://github.com/manaflow-ai/cmux) | Claude Code, Codex, OpenCode, Gemini, Amp and more | its own macOS app | no | notifications via hooks / OSC | not documented |
-| [claude-squad](https://github.com/smtg-ai/claude-squad) | Claude Code, Codex, Gemini, Aider | any terminal (needs tmux) | one per session | not documented | no, manages its own |
-| [ccmanager](https://github.com/kbwo/ccmanager) | Claude Code, Codex, Gemini, OpenCode and more | any terminal | yes, managed in the app | busy / waiting / idle | not documented |
-| [agent-deck](https://github.com/asheshgoplani/agent-deck) | Claude Code, Codex, Gemini, OpenCode and more | any terminal (tmux) | optional | running / waiting / idle | its own tmux sessions |
-| [tmux-agent-status](https://github.com/samleeney/tmux-agent-status) | Claude Code, Codex, Devin | inside your tmux | no | via agent hooks | inside tmux |
+| | Other agents | Runs in | Status | Outside sessions |
+| :--- | :--- | :--- | :--- | :--- |
+| MixHub | Codex, Gemini, OpenCode | tmux | session files | listed |
+| [Agent View](https://code.claude.com/docs/en/agent-view) | none | `claude` CLI | yes | after `/bg` |
+| [cmux](https://github.com/manaflow-ai/cmux) | Codex, Gemini, OpenCode, … | macOS app | hooks / OSC | – |
+| [claude-squad](https://github.com/smtg-ai/claude-squad) | Codex, Gemini, Aider | tmux | – | no |
+| [ccmanager](https://github.com/kbwo/ccmanager) | Codex, Gemini, OpenCode, … | any terminal | yes | – |
+| [agent-deck](https://github.com/asheshgoplani/agent-deck) | Codex, Gemini, OpenCode, … | tmux | yes | no |
+| [tmux-agent-status](https://github.com/samleeney/tmux-agent-status) | Codex, Devin | your tmux | hooks | if in tmux |
 
-If you only use Claude Code, Agent View is built in. If you want a worktree per task, claude-squad and ccmanager do that and MixHub doesn't.
+– means the project's docs don't say.
+
+If you only use Claude Code, Agent View is built in. If you want a git worktree per task, claude-squad and ccmanager make one for you (agent-deck optionally); MixHub doesn't touch git.
 
 ## Install
 
