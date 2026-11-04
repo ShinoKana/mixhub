@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 
 from mixhub.tmux.commands import hubpool_win_name
@@ -19,6 +20,38 @@ _PROMPT_PLACEHOLDERS = (
     "ask anything",
     "enter a prompt",
 )
+
+
+_ESC_RE = re.compile(r"\x1b(?:\[([0-9;:?]*)([A-Za-z])|\][^\x07\x1b]*(?:\x07|\x1b\\)|.)")
+
+
+def strip_dim_text(pane_text: str) -> str:
+    """Plain text of a `capture-pane -e` capture without the cells drawn dim (SGR 2): the CLIs draw their prompt
+    suggestion and placeholder dim in the input box, where it reads like typed text once the colors are gone."""
+    out = []
+    dim = False
+    pos = 0
+    for m in _ESC_RE.finditer(pane_text):
+        if not dim:
+            out.append(pane_text[pos:m.start()])
+        pos = m.end()
+        if m.group(2) != "m":
+            continue
+        params = (m.group(1) or "").split(";")
+        i = 0
+        while i < len(params):
+            code = params[i].split(":")[0]
+            if code in ("", "0", "22"):
+                dim = False
+            elif code == "2":
+                dim = True
+            elif code in ("38", "48", "58") and ":" not in params[i] and i + 1 < len(params):
+                # `38;5;n` / `38;2;r;g;b`: the color numbers are not attributes
+                i += {"5": 2, "2": 4}.get(params[i + 1], 0)
+            i += 1
+    if not dim:
+        out.append(pane_text[pos:])
+    return "".join(out)
 
 
 def load_unsent_drafts(path: str | None = None) -> dict[str, str]:
@@ -110,12 +143,12 @@ def capture_and_save_hubpool_draft(session: dict | None, path: str | None = None
     env.pop("TMUX", None)
     try:
         res = subprocess.run(
-            ["tmux", "-L", "hubpool", "capture-pane", "-p", "-t", f"pool:{wname}"],
+            ["tmux", "-L", "hubpool", "capture-pane", "-e", "-p", "-t", f"pool:{wname}"],
             capture_output=True,
             text=True,
             env=env,
         )
-        raw = res.stdout if isinstance(getattr(res, "stdout", None), str) else ""
+        raw = strip_dim_text(res.stdout) if isinstance(getattr(res, "stdout", None), str) else ""
         draft = extract_unsent_draft_from_pane_text(raw, last_sent_prompt=str(session.get("lastPrompt") or ""))
         if draft:
             save_unsent_draft(session["id"], draft, path=path)

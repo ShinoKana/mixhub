@@ -1049,6 +1049,18 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                 self.assertEqual(hdr_app.current_session()["id"], C1)
                 self.assertEqual(hdr_app.current_session()["tool"], "claude")
 
+                # Row 0 right end: dim hint while the session runs an older Claude Code than the one installed
+                hdr_app.current_session()["cliVersion"] = "2.1.316"
+                with patch("mixhub.core.cli_version.installed_claude_version", return_value="2.1.318"):
+                    hdr_app.stdscr.addstr.reset_mock()
+                    hdr_app.draw()
+                row0 = {c.args[2]: c.args[1] for c in hdr_app.stdscr.addstr.call_args_list if c.args[0] == 0}
+                self.assertEqual(row0.get("old 2.1.316 · 2.1.318 installed"), 90 - 2 - len("old 2.1.316 · 2.1.318 installed"))
+                with patch("mixhub.core.cli_version.installed_claude_version", return_value="2.1.316"):
+                    hdr_app.stdscr.addstr.reset_mock()
+                    hdr_app.draw()
+                self.assertFalse(any("installed" in str(c.args[2]) for c in hdr_app.stdscr.addstr.call_args_list if len(c.args) > 2))
+
             # Verify toggle_outer_sidebar_zoom collapses and expands sidebar in a single atomic compound tmux call (<15ms)
             with patch("mixhub.tmux.outer.get_outer_hub_pane_ids", return_value=("%0", "%1")), \
                  patch("mixhub.tmux.outer.is_outer_hub_zoomed", return_value=False), \

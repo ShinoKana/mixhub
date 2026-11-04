@@ -18,6 +18,25 @@ def _hibernating_marker_path(sid: str) -> str:
     return os.path.join(_paths.HIBERNATING_MARKER_DIR, safe)
 
 
+# A hub hibernate signals the CLI right after writing the marker, so its on-exit runs within seconds. A marker that
+# old was never consumed (the process exited outside a MixHub window) and must not turn a later `/exit` into a sleep.
+HIBERNATING_MARKER_TTL_SEC = 600.0
+
+
+def _consume_hibernating(sid: str) -> bool:
+    """Remove `sid`'s marker; True only when it was fresh enough to belong to the exit happening now."""
+    marker = _hibernating_marker_path(sid)
+    try:
+        fresh = time.time() - os.path.getmtime(marker) < HIBERNATING_MARKER_TTL_SEC
+    except OSError:
+        return False
+    try:
+        os.remove(marker)
+    except OSError:
+        pass
+    return fresh
+
+
 def _clear_hibernating(sid: str) -> None:
     if not sid:
         return

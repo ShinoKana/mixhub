@@ -856,6 +856,8 @@ class DiscoveryMixin:
                 if tool == "claude" and info:
                     lock_ts = max(float(info.get("_mtime") or 0), stamp(info.get("updatedAt")), stamp(info.get("startedAt")))
                     s["lockMtime"] = lock_ts
+                    if info.get("version"):
+                        s["cliVersion"] = str(info["version"])
                     if lock_ts > 0 and not s.get("updatedAt"):
                         s["updatedAt"] = lock_ts
                 elif tool in active_locks and sid in active_locks[tool]:
@@ -952,6 +954,8 @@ class DiscoveryMixin:
                         s["isLive"] = True
                         lock_ts = max(float(info.get("_mtime") or 0), stamp(info.get("updatedAt")), stamp(info.get("startedAt")))
                         s["lockMtime"] = lock_ts
+                        if info.get("version"):
+                            s["cliVersion"] = str(info["version"])
                         if lock_ts > 0 and not s.get("updatedAt"):
                             s["updatedAt"] = lock_ts
                         if not any(pr.get("pid") == pid for pr in s["processes"]):
