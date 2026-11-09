@@ -18,6 +18,7 @@ from mixhub.tmux.commands import _DEEPSEEK_ENV_SOURCE, _deepseek_window_env_args
 from mixhub.tmux.headers import _install_hubpool_header_hooks
 from mixhub.tmux.new_sessions import _NEW_HUBPOOL_SESSIONS, _make_new_hubpool_session_dict
 from mixhub.tmux.outer import current_outer_session_name, current_pool_session_name
+from mixhub.tmux.session_state import _clear_hibernating
 from mixhub.tmux.pool import (
     _unlink_stale_codex_lock_file,
     focus_external_session,
@@ -227,7 +228,19 @@ class SessionActionsMixin:
                 return False, "Session is running in an external terminal tab"
         # Explicit takeover of an idle external process: the one place MixHub stops an agent it did not start
         try:
-            self.hub.hibernate(s, ext_procs, dry=False, keep_working_set=True)
+            res = self.hub.hibernate(s, ext_procs, dry=False, keep_working_set=True)
+            # The marker is for MixHub's own on-exit, which this outside process doesn't run.
+            _clear_hibernating(s["id"])
+            pending = set((res or {}).get("pendingPids") or [])
+            deadline = time.monotonic() + 5.0
+            while pending:
+                pending &= {p.get("pid") for p in self.hub.processes()}
+                if not pending:
+                    break
+                if time.monotonic() >= deadline:
+                    # Resuming now would put two processes on one transcript
+                    return False, "The other terminal's session is still exiting; open it again in a moment"
+                time.sleep(0.2)
             time.sleep(0.25)
         except Exception:
             pass

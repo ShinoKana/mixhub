@@ -11,7 +11,7 @@ import time
 from mixhub.tmux import pool as _pool
 from mixhub.tmux.session_state import (
     _clear_last_exit,
-    _hibernating_marker_path,
+    _consume_hibernating,
     _remove_from_working_set_file,
     _resolve_promoted_new_session,
     _update_working_set_file,
@@ -24,7 +24,8 @@ def handle_cli_on_exit(tool: str, sid: str, wname: str, rc: int = 0, working_set
     """
     `--on-exit` hook run by the `hubpool` CLI wrapper after the native CLI exits.
 
-    1. Hub-initiated hibernate (marker present): consume the marker and keep the session in `Active`.
+    1. Hub-initiated hibernate (marker written in the last few minutes): consume the marker and keep the session in
+       `Active`. An older marker is removed and the exit handled as below.
     2. Signal termination: preserve the real session in `Active`; never write a normal-exit marker.
     3. User `/exit` / `Ctrl-D`: drop it from `active_working_set.json` (moves `Active` -> `Recent`), record
        `data/last_exit/<sid>.json`, point `--reader` at this session's Preview, and close the window
@@ -67,14 +68,9 @@ def handle_cli_on_exit(tool: str, sid: str, wname: str, rc: int = 0, working_set
                                 break
             except Exception:
                 pass
-    for check_id in dict.fromkeys(x for x in (sid, eff_sid) if x):
-        marker = _hibernating_marker_path(check_id)
-        if os.path.exists(marker):
-            try:
-                os.remove(marker)
-            except OSError:
-                pass
-            return 0
+    # A list, not a generator: consume the markers of both ids, not just the first.
+    if any([_consume_hibernating(check_id) for check_id in dict.fromkeys(x for x in (sid, eff_sid) if x)]):
+        return 0
     try:
         rc_i = int(rc)
     except (TypeError, ValueError):

@@ -9,6 +9,7 @@ except ImportError:  # Windows without windows-curses installed
 import os
 import time
 
+from mixhub.core.cli_version import old_version_hint
 from mixhub.core.textwidth import disp_trunc, disp_width
 from mixhub.tui import diag as _diag
 from mixhub.tui.badges import (
@@ -192,6 +193,11 @@ class DrawMixin:
                 try:
                     if meta_x + disp_width(meta_part) < w - 1:
                         self.stdscr.addstr(0, meta_x, meta_part, curses.color_pair(hdr_dim_pair))
+                    # Right end of Row 0: a session still on an older Claude Code build (a hint; MixHub never restarts it)
+                    ver_hint = old_version_hint(s)
+                    ver_x = w - 2 - disp_width(ver_hint)
+                    if ver_hint and ver_x >= meta_x + disp_width(meta_part) + 2:
+                        self.stdscr.addstr(0, ver_x, ver_hint, curses.color_pair(hdr_dim_pair))
                     if h >= 2:
                         self.stdscr.addstr(1, badge_x, b_ch, curses.color_pair(b_hov_pair) | curses.A_BOLD)
                         hdr_info = pstate.get("hdr") or {}
