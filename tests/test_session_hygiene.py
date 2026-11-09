@@ -145,3 +145,22 @@ def test_old_version_hint_reads_the_pid_file_when_the_session_has_no_version(tmp
             mock.patch("mixhub.core.cli_version.os.path.expanduser", return_value=str(tmp_path)):
         assert cli_version.old_version_hint({"tool": "claude", "id": "s-live"}) == "old 2.1.311 · 2.1.319 installed"
         assert cli_version.old_version_hint({"tool": "claude", "id": "s-dead"}) == ""
+
+
+def test_session_parked_into_a_finished_background_job_is_not_busy(tmp_path):
+    """Claude Code leaves `status: busy` on a session that parked its turn into a background job; once the job is
+    no longer working, the session is idle."""
+    from mixhub.hub.discovery import settle_parked_status
+
+    jobs = tmp_path / "jobs"
+    (jobs / "j-done").mkdir(parents=True)
+    (jobs / "j-done" / "state.json").write_text(json.dumps({"state": "done"}), encoding="utf-8")
+    (jobs / "j-run").mkdir()
+    (jobs / "j-run" / "state.json").write_text(json.dumps({"state": "working"}), encoding="utf-8")
+
+    done = settle_parked_status({"status": "busy", "parkedJobId": "j-done"}, str(jobs))
+    assert done["status"] == "idle" and done["_parkedDone"]
+    assert settle_parked_status({"status": "busy", "parkedJobId": "j-gone"}, str(jobs))["status"] == "idle"
+    running = settle_parked_status({"status": "busy", "parkedJobId": "j-run"}, str(jobs))
+    assert running["status"] == "busy" and not running.get("_parkedDone")
+    assert settle_parked_status({"status": "busy"}, str(jobs))["status"] == "busy"

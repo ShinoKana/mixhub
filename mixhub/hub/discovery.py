@@ -46,6 +46,21 @@ from mixhub.proc.identity import get_boot_id
 from mixhub.proc.tree import has_agent_ancestor
 
 
+def settle_parked_status(value: dict, jobs_dir: str) -> dict:
+    """
+    A Claude session that parked its turn into a background job (`parkedJobId`) keeps the `busy` it had at that
+    moment in its pid file. The work runs in the job, so the session is busy only while the job is still working.
+    """
+    job_id = str(value.get("parkedJobId") or "")
+    if job_id and value.get("status") == "busy":
+        job = read_json(os.path.join(jobs_dir, job_id, "state.json"), {})
+        if not isinstance(job, dict) or job.get("state") != "working":
+            value["status"] = "idle"
+            # Its transcript also stops mid-turn at the hand-off, which would otherwise still read as working
+            value["_parkedDone"] = True
+    return value
+
+
 class DiscoveryMixin:
     """Discover sessions from every provider store and merge them with live processes and hub state."""
 
@@ -298,7 +313,7 @@ class DiscoveryMixin:
                         value["_mtime"] = os.stat(path).st_mtime
                     except OSError:
                         value["_mtime"] = 0
-                    pid_states[int(value["pid"])] = value
+                    pid_states[int(value["pid"])] = settle_parked_status(value, self.path(".claude/jobs"))
             self.sessions.close()
             self.sessions = sessions = SessionIndex()
 
@@ -853,6 +868,8 @@ class DiscoveryMixin:
                 s.update(isLive=True, synthetic=synthetic)
                 s["cwd"] = info.get("cwd") or opened.get("cwd") or s["cwd"]
                 s["status"] = info.get("status") or s.get("status", "unknown")
+                if info.get("_parkedDone"):
+                    s["parkedDone"] = True
                 if tool == "claude" and info:
                     lock_ts = max(float(info.get("_mtime") or 0), stamp(info.get("updatedAt")), stamp(info.get("startedAt")))
                     s["lockMtime"] = lock_ts
@@ -1064,6 +1081,8 @@ class DiscoveryMixin:
                     not_idle = bool(s.get("notFullyIdle") and not s.get("killed") and age < 1800)
                     if raw_status in ("working", "running", "busy") or ("running" in raw_status and age < 1800) or not_idle:
                         s["agentState"] = "working"
+                    elif s.get("parkedDone"):
+                        s["agentState"] = "done_idle"
                     elif not has_procs:
                         s["agentState"] = "done_idle"
                         if tstat in ("ball_in_model", "unclosed_tool"):
