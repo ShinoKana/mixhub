@@ -11,6 +11,12 @@ from mixhub.tui.web import _ensure_web_and_open, web_archive_url
 _QUERY_TOOL_TAG_RE = re.compile(r"@(claude|gemini|agy|codex|deepseek)\b", re.IGNORECASE)
 
 
+def _recent_first(pair: tuple[int, dict]) -> tuple[float, int]:
+    """Sort key for `(idx, session)`: most recent activity first, list position breaking ties."""
+    s = pair[1]
+    return (-float(s.get("updatedAt") or s.get("transcriptAt") or s.get("attentionAt") or 0.0), pair[0])
+
+
 class SidebarListMixin:
     """Which sessions the sidebar lists, in what rows, and which one is selected."""
 
@@ -54,7 +60,7 @@ class SidebarListMixin:
 
         if self.sidebar_group_mode == "workspace":
             rows: list[dict] = []
-            pinned_items = [(i, s) for i, s in pairs if s.get("pinned")]
+            pinned_items = sorted(((i, s) for i, s in pairs if s.get("pinned")), key=_recent_first)
             if pinned_items:
                 is_col = "pinned" in self._collapsed_sections
                 rows.append({"kind": "header", "key": "pinned", "label": "Pinned", "count": len(pinned_items), "collapsed": is_col})
@@ -92,7 +98,7 @@ class SidebarListMixin:
         if not use_sections:
             items = list(pairs)
             if distinct_cats == {1}:
-                items.sort(key=lambda pair: (-float(pair[1].get("updatedAt") or pair[1].get("transcriptAt") or pair[1].get("attentionAt") or 0.0), pair[0]))
+                items.sort(key=_recent_first)
             return [{"kind": "session", "idx": i, "session": s} for i, s in items]
 
         sec_defs = (
@@ -105,10 +111,8 @@ class SidebarListMixin:
             items = [(i, s) for i, s in pairs if cat_of[i] == cat_id]
             if not items:
                 continue
-            if sec_key == "active":
-                items.sort(
-                    key=lambda pair: (-float(pair[1].get("updatedAt") or pair[1].get("transcriptAt") or pair[1].get("attentionAt") or 0.0), pair[0])
-                )
+            if sec_key in ("pinned", "active"):
+                items.sort(key=_recent_first)
             is_col = sec_key in self._collapsed_sections
             rows.append({"kind": "header", "key": sec_key, "label": sec_label, "count": len(items), "collapsed": is_col})
             if not is_col:
