@@ -174,3 +174,48 @@ def test_codex_task_sent_by_claude_code_is_automated():
     assert is_codex_automated("vscode", prompt, prompt, originator="Claude Code")
     assert not is_codex_automated("vscode", prompt, prompt, originator="codex-tui")
     assert not is_codex_automated("vscode", prompt, prompt)
+
+
+def _with_local_rules(tmp_path, rules):
+    from mixhub.hub import constants, session_filters
+
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "local_rules.json").write_text(json.dumps(rules), encoding="utf-8")
+    session_filters._LOCAL_RULES_CACHE["mtime"] = None
+    return mock.patch.object(constants, "ROOT", str(tmp_path))
+
+
+def test_codex_automation_reason_prefers_what_codex_recorded(tmp_path):
+    """The CLI's own record of who started a thread decides first; text rules are only the fallback."""
+    from mixhub.hub.session_filters import codex_automation_reason
+
+    with _with_local_rules(tmp_path, {}), mock.patch.dict(os.environ, {"MIXHUB_PREFERENCES_PATH": str(tmp_path / "none")}):
+        assert codex_automation_reason("vscode", "<task> x", "<task> x", originator="Claude Code") == "originator"
+        assert codex_automation_reason("exec", "fix it", "fix it") == "source"
+        assert codex_automation_reason('{"subagent": {}}', "fix it", "fix it") == "source"
+        assert codex_automation_reason("vscode", "", "<task> Review the site") == "text:<task>"
+        assert codex_automation_reason("cli", "exit", "exit") == "text:exit"
+        assert codex_automation_reason("cli", "fix the login bug", "fix the login bug", originator="codex-tui") == ""
+
+
+def test_personal_codex_prompt_prefixes_live_in_local_rules_and_only_hide_codex(tmp_path):
+    from mixhub.hub import session_filters
+
+    rules = {"codex_automated_prefixes": ["Second opinion on"]}
+    with _with_local_rules(tmp_path, rules), mock.patch.dict(os.environ, {"MIXHUB_PREFERENCES_PATH": str(tmp_path / "none")}):
+        assert session_filters.codex_automation_reason("vscode", "", "Second opinion on the bot") == "text:Second opinion on"
+        assert not session_filters.is_automated_or_subagent_text("Second opinion on the bot")
+    with _with_local_rules(tmp_path, {}), mock.patch.dict(os.environ, {"MIXHUB_PREFERENCES_PATH": str(tmp_path / "none")}):
+        assert session_filters.codex_automation_reason("vscode", "", "Second opinion on the bot") == ""
+
+
+def test_doctor_hidden_lists_sessions_hidden_only_by_text_rules():
+    from mixhub.ops.doctor import hidden_by_text_rules
+
+    sessions = [
+        {"tool": "codex", "id": "a", "automated": True, "automatedBy": "originator", "title": "t"},
+        {"tool": "codex", "id": "b", "automated": True, "automatedBy": "text:<task>", "title": "Review"},
+        {"tool": "claude", "id": "c", "automated": True, "isSubagent": True, "title": "sub"},
+        {"tool": "claude", "id": "d", "automated": False, "title": "mine"},
+    ]
+    assert [(s["id"], rule) for s, rule in hidden_by_text_rules(sessions)] == [("b", "<task>")]

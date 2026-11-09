@@ -398,7 +398,9 @@ class HubTest(unittest.TestCase):
     def test_codex_automated_task_and_referenced_filters(self):
         self.assertTrue(server.is_codex_automated("vscode", "Codex Companion Task: <task> audit", "--no-write <task>\nReview"))
         self.assertTrue(server.is_codex_automated("vscode", "## Referenced ChatGPT conversation:", "## Referenced ChatGPT conversation:\nUntrusted"))
-        self.assertTrue(server.is_codex_automated("vscode", "Read-only review", "Read-only strategic review of this trading bot"))
+        self.assertTrue(server.is_codex_automated("vscode", "Read-only review", "Read-only review of this bot", originator="Claude Code"))
+        # Personal prompt templates are local rules (`codex_automated_prefixes`), not built in
+        self.assertFalse(server.is_codex_automated("vscode", "Read-only review", "Read-only review of this bot"))
         self.assertFalse(server.is_codex_automated("cli", "帮我看下这个文件夹是干嘛的", "帮我看下这个文件夹是干嘛的"))
 
     def test_tui_cjk_display_width(self):

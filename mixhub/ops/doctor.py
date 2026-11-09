@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 from mixhub.tmux.gateway import MIN_TMUX, tmux_version_tuple
 
@@ -101,12 +102,48 @@ def run_doctor(hub=None, env: dict | None = None) -> dict:
             "terminal": terminal, "summary_text": "\n".join(lines)}
 
 
+def hidden_by_text_rules(sessions):
+    """
+    `(session, rule)` for each session hidden only because its text matched a rule, not because its CLI recorded
+    it as dispatched (subagent, headless run, Codex `originator` / `source`). These are the ones a rule can hide by
+    mistake.
+    """
+    from mixhub.hub.session_filters import automated_text_rule, codex_automation_reason
+
+    out = []
+    for s in sessions:
+        if not s.get("automated") or s.get("isSubagent") or s.get("parentId"):
+            continue
+        by = str(s.get("automatedBy") or "")
+        if by and not by.startswith("text:"):
+            continue
+        rule = by[len("text:"):]
+        if not rule and s.get("tool") == "codex":
+            rule = codex_automation_reason(None, s.get("sourceTitle") or "", s.get("firstPrompt") or "")[len("text:"):]
+        if not rule:
+            rule = next((r for r in (automated_text_rule(s.get(f) or "")
+                                     for f in ("title", "sourceTitle", "firstPrompt", "lastPrompt")) if r), "")
+        if rule:
+            out.append((s, rule))
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mixhub doctor", description="Check agent CLIs, tmux, notification channels and terminal settings")
     parser.add_argument("--json", action="store_true", help="Output raw JSON report")
+    parser.add_argument("--hidden", action="store_true", help="List sessions hidden only by a text rule")
     opts = parser.parse_args(argv)
 
     from mixhub.hub.hub import Hub
+
+    if opts.hidden:
+        rows = sorted(hidden_by_text_rules(Hub().discover(True).values()), key=lambda r: -float(r[0].get("updatedAt") or 0))
+        for s, rule in rows:
+            when = time.strftime("%Y-%m-%d", time.localtime(float(s.get("updatedAt") or 0)))
+            title = " ".join(str(s.get("title") or s.get("firstPrompt") or "").split())[:60]
+            print(f"{when}  {s.get('tool', ''):6} {str(s.get('id', ''))[:8]}  {rule[:32]:32}  {title}")
+        print(f"{len(rows)} sessions hidden only by text rules (data/local_rules.json, Preferences ignore_prompt_patterns)")
+        return 0
 
     report = run_doctor(Hub())
     if opts.json:

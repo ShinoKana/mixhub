@@ -31,9 +31,9 @@ from mixhub.hub.schema import claude_is_headless_marker, codex_state_db_candidat
 from mixhub.hub.session_filters import (
     _load_local_rules,
     _LOCAL_RULES_CACHE,
+    codex_automation_reason,
     is_automated_or_subagent_text,
     is_users_own_prompt,
-    is_codex_automated,
     is_temp_session,
 )
 from mixhub.hub.shell import resume_command
@@ -593,13 +593,14 @@ class DiscoveryMixin:
                 )
                 cmemo = self._codex_row_memo.get(rid)
                 if cmemo is not None and cmemo[0] == codex_sig:
-                    parsed_title, parsed_first, row_is_auto, row_up_ts = cmemo[1]
+                    parsed_title, parsed_first, row_auto_by, row_up_ts = cmemo[1]
                 else:
                     parsed_title = snippet(raw_title, 200)
                     parsed_first = snippet(clean_prompt(raw_first, "codex"))
-                    row_is_auto = bool(is_codex_automated(csrc, raw_title, raw_first, row.get("originator")) or row.get("agent_role"))
+                    row_auto_by = "source" if row.get("agent_role") else codex_automation_reason(csrc, raw_title, raw_first, row.get("originator"))
                     row_up_ts = stamp(row.get("updated_at"))
-                    self._codex_row_memo[rid] = (codex_sig, (parsed_title, parsed_first, row_is_auto, row_up_ts))
+                    self._codex_row_memo[rid] = (codex_sig, (parsed_title, parsed_first, row_auto_by, row_up_ts))
+                row_is_auto = bool(row_auto_by)
                 path = row.get("rollout_path")
                 resolved_path = None
                 if path:
@@ -620,6 +621,8 @@ class DiscoveryMixin:
                     "firstPrompt": parsed_first,
                     "model": row.get("model"), "reasoningEffort": row.get("reasoning_effort"),
                     "automated": is_auto})
+                if row_auto_by:
+                    s["automatedBy"] = row_auto_by
                 if resolved_path:
                     s["path"] = resolved_path
                     known_codex_paths.add(resolved_path)

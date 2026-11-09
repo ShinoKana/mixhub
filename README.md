@@ -240,7 +240,7 @@ Everything works without configuration. Optional settings live in a JSON file na
 | `MIXHUB_NO_OPEN=1` | `mixhub web` starts the daemon without opening a browser |
 | `MIXHUB_NO_UPDATE_CHECK=1` | No daily update check |
 
-`host_label` is the machine name shown in the web workbench (the hostname by default). `dispatch_scripts` names your own wrapper scripts that start agents headlessly, so their sessions are not mistaken for interactive ones. Prompts that your own automation sends can be hidden from the list with `data/local_rules.json` (`automated_prefixes`, `automated_substrings`). Notes your own tools type into an agent on another agent's behalf go in `relayed_prefixes`: they never count as you having used a session, but don't hide one either.
+`host_label` is the machine name shown in the web workbench (the hostname by default). `dispatch_scripts` names your own wrapper scripts that start agents headlessly, so their sessions are not mistaken for interactive ones. Sessions another agent started are hidden by what their CLI records (subagents, headless runs, Codex tasks whose `originator` is Claude Code). For older sessions without such a record, prompts that your own automation sends can be hidden with `data/local_rules.json` (`automated_prefixes`, `automated_substrings`, and `codex_automated_prefixes` for Codex only); `mixhub doctor --hidden` lists every session a text rule hides. Notes your own tools type into an agent on another agent's behalf go in `relayed_prefixes`: they never count as you having used a session, but don't hide one either.
 
 ## Architecture
 

@@ -30,7 +30,9 @@ USAGE = """Usage: mixhub [command]
   mixhub web             open the web workbench (starts the local daemon)
   mixhub start|stop|status
                          control the web daemon without opening a browser
-  mixhub doctor          check agents, tmux, channels and terminal settings
+  mixhub doctor [--hidden]
+                         check agents, tmux, channels and terminal settings;
+                         --hidden lists sessions hidden only by a text rule
   mixhub handoff SESSION_ID --to claude|codex|agy [--mode delegate|review] [--dry-run]
                          hand a session over to another agent
   mixhub notify ...      send a notification through the configured channels

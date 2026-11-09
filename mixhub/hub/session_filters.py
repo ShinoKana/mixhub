@@ -13,34 +13,36 @@ from mixhub.hub.titles import FALLBACK_TITLE_RE
 from mixhub.hub.util import read_json
 
 
-CODEX_AUTO_PREFIXES = (
-    "Read-only ", "READ FIRST", "Read the following key files", "Read " + os.path.expanduser("~") + "/",
-    "Repository: ", "Adversarial second opinion", "Second opinion on what a trading bot",
-    "Use image_gen to generate", "请先用 view_image 读取", "请用 image_gen 生成",
-    "Create a self-contained HTML", "读取以下文件并完成中文文案重写任务",
-    "# Files mentioned by the user:\n\n## Photo 1.jpg: /tmp/codex-remote-attachments/",
-)
+def codex_automation_reason(source=None, title="", first_msg="", originator=None) -> str:
+    """
+    Why a Codex thread counts as automated, or "" when it doesn't. What Codex recorded about who started the thread
+    decides first (`originator`, `source`); text rules only cover threads older than those fields.
+    """
+    # A task Claude Code dispatched to Codex (codex-companion); its result goes back to that Claude session
+    if originator == "Claude Code":
+        return "originator"
+    if isinstance(source, dict) or (isinstance(source, str) and (source == "exec" or source.startswith("{"))):
+        return "source"
+    t = (title or "").strip()
+    m = (first_msg or "").strip()
+    if "<task>" in m or "<task>" in t:
+        return "text:<task>"
+    for prefix in ("Codex Companion Task:", "## Referenced ChatGPT conversation:"):
+        if m.startswith(prefix) or t.startswith(prefix):
+            return "text:" + prefix
+    for word in ("--help", "exit", "usage"):
+        if word in (m, t):
+            return "text:" + word
+    low = m.casefold()
+    for prefix in _load_local_rules().get("codex_automated_prefixes") or ():
+        if low.startswith(prefix.casefold()):
+            return "text:" + prefix
+    rule = automated_text_rule(t) or automated_text_rule(m)
+    return "text:" + rule if rule else ""
 
 
 def is_codex_automated(source=None, title="", first_msg="", originator=None):
-    # A task Claude Code dispatched to Codex (codex-companion); its result goes back to that Claude session
-    if originator == "Claude Code":
-        return True
-    if isinstance(source, dict) or (isinstance(source, str) and (source == "exec" or source.startswith("{"))):
-        return True
-    t = (title or "").strip()
-    m = (first_msg or "").strip()
-    if "<task>" in m or "<task>" in t or t.startswith("Codex Companion Task:"):
-        return True
-    if m.startswith("## Referenced ChatGPT conversation:") or t.startswith("## Referenced ChatGPT conversation:"):
-        return True
-    if m in ("--help", "exit", "usage") or t in ("--help", "exit", "usage"):
-        return True
-    if m.startswith(CODEX_AUTO_PREFIXES):
-        return True
-    if is_automated_or_subagent_text(t) or is_automated_or_subagent_text(m):
-        return True
-    return False
+    return bool(codex_automation_reason(source, title, first_msg, originator))
 
 
 _DISCOVER_GEN: int = 0
@@ -116,7 +118,7 @@ def _load_local_rules() -> dict:
     if not isinstance(raw, dict):
         raw = {}
     data = {}
-    for key in ("automated_prefixes", "automated_substrings", "relayed_prefixes"):
+    for key in ("automated_prefixes", "automated_substrings", "relayed_prefixes", "codex_automated_prefixes"):
         vals = raw.get(key)
         data[key] = [str(v) for v in vals if isinstance(v, str) and v.strip()] if isinstance(vals, list) else []
     patterns = prefs.get("ignore_prompt_patterns")
@@ -138,24 +140,35 @@ def _load_local_rules() -> dict:
     return data
 
 
-def is_automated_or_subagent_text(text: str) -> bool:
+def automated_text_rule(text: str) -> str:
+    """The built-in or local rule that marks `text` as automation, or "" when none does."""
     if not text:
-        return False
+        return ""
     s = str(text).strip()
     if not s:
-        return False
-    if s.startswith(_BUILTIN_AUTOMATED_PREFIXES) or any(m in s for m in _BUILTIN_AUTOMATED_SUBSTRINGS):
-        return True
+        return ""
+    for p in _BUILTIN_AUTOMATED_PREFIXES:
+        if s.startswith(p):
+            return p
+    for m in _BUILTIN_AUTOMATED_SUBSTRINGS:
+        if m in s:
+            return m
     low = s.casefold()
     rules = _load_local_rules()
     # Local rules match case-insensitively (casefold) so user-supplied patterns need not mirror exact casing.
     prefixes = _LOCAL_RULES_CACHE.get("folded_prefixes") or tuple(p.casefold() for p in (rules.get("automated_prefixes") or []))
-    if prefixes and low.startswith(prefixes):
-        return True
+    for p in prefixes:
+        if low.startswith(p):
+            return p
     substrings = _LOCAL_RULES_CACHE.get("folded_substrings") or tuple(m.casefold() for m in (rules.get("automated_substrings") or []))
-    if substrings and any(m in low for m in substrings):
-        return True
-    return False
+    for m in substrings:
+        if m in low:
+            return "has:" + m
+    return ""
+
+
+def is_automated_or_subagent_text(text: str) -> bool:
+    return bool(automated_text_rule(text))
 
 
 def is_users_own_prompt(text: str) -> bool:

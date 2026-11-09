@@ -86,7 +86,7 @@ from mixhub.hub.session_filters import (  # noqa: F401
     _LOCAL_RULES_CACHE,
     _UI_PREFS_CACHE,
     _ui_prefs_path,
-    CODEX_AUTO_PREFIXES,
+    codex_automation_reason,
     is_automated_or_subagent_text,
     is_codex_automated,
     is_temp_session,

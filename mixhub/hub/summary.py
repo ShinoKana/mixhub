@@ -17,7 +17,7 @@ from mixhub.hub.constants import (
 )
 from mixhub.hub.opencode import opencode_entries
 from mixhub.hub.schema import claude_is_headless_marker, claude_is_synthetic_user, PROVIDER_SCHEMA_ADAPTERS
-from mixhub.hub.session_filters import is_automated_or_subagent_text, is_codex_automated
+from mixhub.hub.session_filters import codex_automation_reason, is_automated_or_subagent_text
 from mixhub.hub.text import clean_prompt, snippet
 from mixhub.hub.titles import (
     _is_generic_placeholder_title,
@@ -266,8 +266,10 @@ class TranscriptMixin:
             if row.get("type") == "session_meta":
                 meta = row.get("payload") or {}
                 result.update({k: meta[k] for k in ("id", "cwd") if meta.get(k)})
-                if is_codex_automated(meta.get("source"), originator=meta.get("originator")):
+                auto_by = codex_automation_reason(meta.get("source"), originator=meta.get("originator"))
+                if auto_by:
                     result["automated"] = True
+                    result["automatedBy"] = auto_by
             if row.get("lastPrompt"):
                 result["lastPrompt"] = snippet(clean_prompt(row["lastPrompt"], tool), 220)
         if has_sdk_cli and not has_human_turn:
@@ -302,8 +304,11 @@ class TranscriptMixin:
             result["messageCount"] += 1
             if entry["role"] == "user" and not entry.get("synthetic"):
                 prompt = snippet(entry["text"])
-                if tool == "codex" and not result["firstPrompt"] and is_codex_automated(None, "", entry["text"]):
-                    result["automated"] = True
+                if tool == "codex" and not result["firstPrompt"]:
+                    auto_by = codex_automation_reason(None, "", entry["text"])
+                    if auto_by:
+                        result["automated"] = True
+                        result.setdefault("automatedBy", auto_by)
                 result["firstPrompt"] = result["firstPrompt"] or prompt
                 if not substantive_prompt and not _is_generic_placeholder_title(prompt) and len(prompt.strip()) >= 4:
                     substantive_prompt = prompt
