@@ -32,7 +32,7 @@ from mixhub.tui.core.style import (
 # 5-state zero-bold Morandi timestamp color table (`(unselected_pair, selected_pair)`, always `bg = -1`, zero bold):
 #   1) wait_input: 180 warm sand yellow (P_STAT_T3), stays 180 when selected
 #   2) working:    67 steel blue (P_DONE), stays 67 when selected
-#   3) failed:     174 terracotta coral (P_STAT_T4), settles to 244 (P_META) once selected/seen
+#   3) failed:     167 warning red (P_STAT_T4), settles to 244 (P_META) once selected/seen
 #   4) unread:     108 sage moss green (P_STAT_T1), settles to 244 (P_META) once selected/seen
 #   5) seen:       240 dim gray (P_DIM) unselected, 244 (P_META) when selected
 STATE_AGE_COLOR: dict[str, tuple[int, int]] = {

@@ -37,7 +37,7 @@ def _morandi_quota_pair(rem_pct: int | float | None) -> int:
       - >= 65% remaining -> P_STAT_T1 (Morandi sage moss green #87af87)
       - 40..64% remaining -> P_STAT_T2 (Morandi oat khaki #afaf87)
       - 15..39% remaining -> P_STAT_T3 (Morandi warm sand/camel #d7af87)
-      - < 15% remaining -> P_STAT_T4 (Morandi dusty coral #d78787)
+      - < 15% remaining -> P_STAT_T4 (warning red #d75f5f)
     """
     if rem_pct is None:
         return P_DIM

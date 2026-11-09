@@ -376,7 +376,7 @@ class DrawMixin:
                 # Otherwise 5-state zero-bold Morandi palette on `age_col` via `STATE_AGE_COLOR` (NEVER `A_BOLD`):
                 # 1) wait_input: warm sand yellow 180 (P_STAT_T3, stays 180 when selected);
                 # 2) working: steel blue 67 (P_DONE, stays 67 when selected);
-                # 3) failed/interrupted unread: terracotta coral 174 (P_STAT_T4);
+                # 3) failed/interrupted unread: warning red 167 (P_STAT_T4);
                 # 4) unread: sage moss green 108 (P_STAT_T1);
                 # 5) seen: calm dim gray 240 (P_DIM) / 244 (P_META) selected.
                 is_failed_unread = bool(

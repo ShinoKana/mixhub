@@ -432,7 +432,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
           - Brand-colored hollow diamond ◇ (◈ for cross-agent handoff, ◇ <-> ◈ for working),
           - Codex color is pale lavender-white 189, Claude is 174, Gemini is 75,
           - No red dot • or ◞ tail after the timestamp,
-          - 5-state zero-bold Morandi timestamps at x=27: working 67 / wait 174 / failed 139 / unread 180 / read gray.
+          - 5-state zero-bold Morandi timestamps at x=27: working 67 / wait 167 / failed 139 / unread 180 / read gray.
         """
         # 4a. Verify 256-color palette initialization (Codex=189, Claude=174, Gemini=75)
         app = self._make_tui(height=30, width=32, sidebar_only=True)
@@ -495,7 +495,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
         # palette (`STATE_AGE_COLOR`) on `age_col` at x = 27 (`age_x = 5 + title_cols + 1` with `title_cols = left_w - 11 = 21`):
         #   wait_input -> P_STAT_T3 (180 warm sand yellow, stays 180 when selected),
         #   working -> P_DONE (67 steel blue, stays 67 when selected),
-        #   failed unread -> P_STAT_T4 (174 terracotta coral, becomes P_META 244 once selected/read),
+        #   failed unread -> P_STAT_T4 (167 warning red, becomes P_META 244 once selected/read),
         #   unread -> P_STAT_T1 (108 sage moss green, becomes P_META 244 once selected/read),
         #   read/seen -> P_DIM (240) / P_META (244) when selected. Never A_BOLD, never a gray box.
         color = lambda pair: pair << 8
