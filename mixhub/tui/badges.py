@@ -88,7 +88,7 @@ def _agent_badge(tool: str, status: str = "dormant", pinned: bool = False) -> tu
     """
     Single-column 'State Shape x Official Brand Color' encoding (zero fake company logos):
       - Brand color:
-        Claude (`claude`)       = coral-orange 209 (P_AGENT_CLAUDE)
+        Claude (`claude`)       = pink 174 (P_AGENT_CLAUDE)
         Gemini (`agy`/`gemini`) = cornflower-blue 75 (P_AGENT_AGY)
         Codex (`codex`)         = pale lavender-white 189 (P_AGENT_CODEX)
       - Shape (kept identical whether pinned or unpinned; pinned rows live in the `Pinned` section):

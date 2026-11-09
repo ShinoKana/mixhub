@@ -1611,7 +1611,7 @@ class HubTest(unittest.TestCase):
                 for pair, bg in ((tui.P_AGENT_CODEX, -1), (tui.P_AGENT_CODEX_SEL, 237 if colors == 256 else tui.curses.COLOR_BLACK), (tui.P_AGENT_CODEX_HOV, 235 if colors == 256 else tui.curses.COLOR_BLACK)):
                     init.assert_any_call(pair, fg, bg)
                 if colors == 256:
-                    init.assert_any_call(tui.P_AGENT_CLAUDE, 209, -1)
+                    init.assert_any_call(tui.P_AGENT_CLAUDE, 174, -1)
                     init.assert_any_call(tui.P_AGENT_AGY, 75, -1)
         for i, frame in enumerate(tui.WORKING_DIAMOND_FRAMES):
             cells = tui.render_sidebar_row_cells(dict(tool="codex", isLive=True, agentState="working"), is_unread=True, now_mono=i * tui.WORKING_DIAMOND_PERIOD + 0.01)

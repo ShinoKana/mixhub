@@ -430,11 +430,11 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
         Contract 4:
         Verify render_sidebar_row_cells & draw():
           - Brand-colored hollow diamond ◇ (◈ for cross-agent handoff, ◇ <-> ◈ for working),
-          - Codex color is pale lavender-white 189, Claude is 209, Gemini is 75,
+          - Codex color is pale lavender-white 189, Claude is 174, Gemini is 75,
           - No red dot • or ◞ tail after the timestamp,
           - 5-state zero-bold Morandi timestamps at x=27: working 67 / wait 174 / failed 139 / unread 180 / read gray.
         """
-        # 4a. Verify 256-color palette initialization (Codex=189, Claude=209, Gemini=75)
+        # 4a. Verify 256-color palette initialization (Codex=189, Claude=174, Gemini=75)
         app = self._make_tui(height=30, width=32, sidebar_only=True)
         with patch("tui.curses.start_color"), \
              patch("tui.curses.use_default_colors"), \
@@ -442,7 +442,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
              patch("tui.curses.init_pair") as mock_init_pair:
             app._init_colors()
             mock_init_pair.assert_any_call(tui.P_AGENT_CODEX, 189, -1)
-            mock_init_pair.assert_any_call(tui.P_AGENT_CLAUDE, 209, -1)
+            mock_init_pair.assert_any_call(tui.P_AGENT_CLAUDE, 174, -1)
             mock_init_pair.assert_any_call(tui.P_AGENT_AGY, 75, -1)
             mock_init_pair.assert_any_call(tui.P_WAIT, 214, -1)
             mock_init_pair.assert_any_call(tui.P_DIM, 240, -1)
