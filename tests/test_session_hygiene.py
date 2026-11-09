@@ -164,3 +164,13 @@ def test_session_parked_into_a_finished_background_job_is_not_busy(tmp_path):
     running = settle_parked_status({"status": "busy", "parkedJobId": "j-run"}, str(jobs))
     assert running["status"] == "busy" and not running.get("_parkedDone")
     assert settle_parked_status({"status": "busy"}, str(jobs))["status"] == "busy"
+
+
+def test_codex_task_sent_by_claude_code_is_automated():
+    """A Codex task Claude dispatched (codex-companion) carries `originator: Claude Code`, whatever its prompt says."""
+    from mixhub.hub.session_filters import is_codex_automated
+
+    prompt = "You are working on a scroll-driven three.js homepage:"
+    assert is_codex_automated("vscode", prompt, prompt, originator="Claude Code")
+    assert not is_codex_automated("vscode", prompt, prompt, originator="codex-tui")
+    assert not is_codex_automated("vscode", prompt, prompt)

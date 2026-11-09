@@ -22,7 +22,10 @@ CODEX_AUTO_PREFIXES = (
 )
 
 
-def is_codex_automated(source=None, title="", first_msg=""):
+def is_codex_automated(source=None, title="", first_msg="", originator=None):
+    # A task Claude Code dispatched to Codex (codex-companion); its result goes back to that Claude session
+    if originator == "Claude Code":
+        return True
     if isinstance(source, dict) or (isinstance(source, str) and (source == "exec" or source.startswith("{"))):
         return True
     t = (title or "").strip()

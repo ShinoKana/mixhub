@@ -266,7 +266,7 @@ class TranscriptMixin:
             if row.get("type") == "session_meta":
                 meta = row.get("payload") or {}
                 result.update({k: meta[k] for k in ("id", "cwd") if meta.get(k)})
-                if is_codex_automated(meta.get("source")):
+                if is_codex_automated(meta.get("source"), originator=meta.get("originator")):
                     result["automated"] = True
             if row.get("lastPrompt"):
                 result["lastPrompt"] = snippet(clean_prompt(row["lastPrompt"], tool), 220)

@@ -563,7 +563,7 @@ class DiscoveryMixin:
             # archived_sessions/ only resolves rows whose recorded rollout_path moved; it never adds new rows.
             codex_session_files, codex_disk_paths = self._discover_codex_rollouts()
             codex_disk_paths_set = set(codex_session_files) | set(codex_disk_paths.values())
-            codex_columns = ["id", "title", "cwd", "first_user_message", "updated_at", "created_at", "model", "reasoning_effort", "rollout_path", "agent_role", "source"]
+            codex_columns = ["id", "title", "cwd", "first_user_message", "updated_at", "created_at", "model", "reasoning_effort", "rollout_path", "agent_role", "source", "originator"]
             known_codex_paths = set()
             # Follow Codex's state DB schema bumps (state_5 -> state_6 ...): newest file that actually
             # has a `threads` table wins; otherwise fall back to older candidates.
@@ -587,6 +587,7 @@ class DiscoveryMixin:
                     len(raw_first),
                     raw_first[:128],
                     csrc,
+                    row.get("originator"),
                     row.get("agent_role"),
                     rules_mtime,
                 )
@@ -596,7 +597,7 @@ class DiscoveryMixin:
                 else:
                     parsed_title = snippet(raw_title, 200)
                     parsed_first = snippet(clean_prompt(raw_first, "codex"))
-                    row_is_auto = bool(is_codex_automated(csrc, raw_title, raw_first) or row.get("agent_role"))
+                    row_is_auto = bool(is_codex_automated(csrc, raw_title, raw_first, row.get("originator")) or row.get("agent_role"))
                     row_up_ts = stamp(row.get("updated_at"))
                     self._codex_row_memo[rid] = (codex_sig, (parsed_title, parsed_first, row_is_auto, row_up_ts))
                 path = row.get("rollout_path")
