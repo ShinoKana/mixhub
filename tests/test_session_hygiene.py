@@ -130,3 +130,18 @@ def test_old_version_hint_only_for_an_older_claude_session():
         assert cli_version.old_version_hint({"tool": "codex", "cliVersion": "0.1.0"}) == ""
     with mock.patch("mixhub.core.cli_version.installed_claude_version", return_value=""):
         assert cli_version.old_version_hint({"tool": "claude", "cliVersion": "2.1.316"}) == ""
+
+
+def test_old_version_hint_reads_the_pid_file_when_the_session_has_no_version(tmp_path):
+    """A `--header` pane has only lightweight session meta, no discovery; the hint finds the version itself."""
+    sessions_dir = tmp_path / ".claude" / "sessions"
+    sessions_dir.mkdir(parents=True)
+    (sessions_dir / f"{os.getpid()}.json").write_text(
+        json.dumps({"pid": os.getpid(), "sessionId": "s-live", "version": "2.1.311"}), encoding="utf-8")
+    (sessions_dir / "999999.json").write_text(
+        json.dumps({"pid": 999999, "sessionId": "s-dead", "version": "2.1.200"}), encoding="utf-8")
+    cli_version._running_cache.clear()
+    with mock.patch("mixhub.core.cli_version.installed_claude_version", return_value="2.1.319"), \
+            mock.patch("mixhub.core.cli_version.os.path.expanduser", return_value=str(tmp_path)):
+        assert cli_version.old_version_hint({"tool": "claude", "id": "s-live"}) == "old 2.1.311 · 2.1.319 installed"
+        assert cli_version.old_version_hint({"tool": "claude", "id": "s-dead"}) == ""

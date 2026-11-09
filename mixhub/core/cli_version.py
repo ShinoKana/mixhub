@@ -6,6 +6,8 @@ itself (a restart drops Remote Control, and Claude Code refuses `/restart` after
 """
 from __future__ import annotations
 
+import glob
+import json
 import os
 import re
 import shutil
@@ -14,6 +16,7 @@ import time
 _VERSION_RE = re.compile(r"^\d+(\.\d+)+$")
 _CACHE_SEC = 30.0
 _installed_cache: dict[str, tuple[float, str]] = {}
+_running_cache: dict[str, tuple[float, dict[str, str]]] = {}
 
 
 def installed_claude_version() -> str:
@@ -33,6 +36,28 @@ def installed_claude_version() -> str:
     return ver
 
 
+def running_claude_versions() -> dict[str, str]:
+    """`{sessionId: version}` from the live processes' `~/.claude/sessions/<pid>.json`, for a `--header` pane that
+    has no discovery of its own."""
+    now = time.monotonic()
+    hit = _running_cache.get("claude")
+    if hit and now - hit[0] < _CACHE_SEC:
+        return hit[1]
+    found: dict[str, str] = {}
+    for fp in glob.glob(os.path.join(os.path.expanduser("~"), ".claude", "sessions", "*.json")):
+        try:
+            with open(fp, encoding="utf-8") as f:
+                info = json.load(f)
+            pid, sid, ver = int(info["pid"]), str(info["sessionId"]), str(info.get("version") or "")
+            os.kill(pid, 0)
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if ver:
+            found[sid] = ver
+    _running_cache["claude"] = (now, found)
+    return found
+
+
 def _as_tuple(ver: str) -> tuple[int, ...]:
     return tuple(int(x) for x in ver.split("."))
 
@@ -41,7 +66,7 @@ def old_version_hint(s: dict) -> str:
     """`old 2.1.316 · 2.1.318 installed` for a Claude session started on an older build, else empty."""
     if not s or s.get("tool") != "claude":
         return ""
-    running = str(s.get("cliVersion") or "")
+    running = str(s.get("cliVersion") or running_claude_versions().get(str(s.get("id") or ""), ""))
     if not _VERSION_RE.match(running):
         return ""
     installed = installed_claude_version()
