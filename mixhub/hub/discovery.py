@@ -1201,10 +1201,9 @@ class DiscoveryMixin:
                             exit_rc = int(exit_info.get("rc", 0))
                         except (TypeError, ValueError, AttributeError):
                             exit_rc = 0
-                        signal_exit = exit_rc < 0 or exit_rc >= 128 or bool(
-                            isinstance(exit_info, dict) and exit_info.get("signal_exit")
-                        )
-                        if not signal_exit and exit_ts > 0.0 and exit_ts >= sess_ts - 5.0:
+                        # Only rc 0 is the user leaving (`/exit`); a signal or a CLI that failed to start is not
+                        user_exit = exit_rc == 0 and not (isinstance(exit_info, dict) and exit_info.get("signal_exit"))
+                        if user_exit and exit_ts > 0.0 and exit_ts >= sess_ts - 5.0:
                             s["isLive"] = False
                             s["inWorkingSet"] = False
                             s["agentState"] = "dormant"
