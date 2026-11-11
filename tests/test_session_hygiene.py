@@ -280,3 +280,37 @@ def test_claude_resumes_from_the_folder_its_transcript_belongs_to(tmp_path):
     assert resume_cwd({"tool": "claude", "id": "s1", "cwd": str(moved), "path": str(path)}) == str(start)
     assert resume_cwd({"tool": "claude", "id": "s1", "cwd": str(start), "path": str(path)}) == str(start)
     assert resume_cwd({"tool": "codex", "id": "s1", "cwd": str(moved)}) == str(moved)
+
+
+def test_claude_quota_going_back_up_in_the_same_window_is_taken_from_a_live_session(tmp_path):
+    """A reset (e.g. a usage reset) raises the remaining share inside the same window. A session that just talked to
+    the API reports it and wins; an idle window re-rendering its old numbers neither lowers it nor looks fresh."""
+    from mixhub.providers.statusline import claude_windows, merge_windows
+
+    now = 1_000_000.0
+    reset = now + 3 * 86400
+    live_tx, idle_tx = tmp_path / "live.jsonl", tmp_path / "idle.jsonl"
+    live_tx.write_text("{}\n", encoding="utf-8")
+    idle_tx.write_text("{}\n", encoding="utf-8")
+    os.utime(live_tx, (now - 5, now - 5))
+    os.utime(idle_tx, (now - 3600, now - 3600))
+
+    def status(used, tx):
+        return {"transcript_path": str(tx), "rate_limits": {"seven_day": {"used_percentage": used, "resets_at": reset}}}
+
+    old = {"claude-weekly": {"remaining_fraction": 0.38, "reset_time": reset, "observed_at": now - 600, "started": True}}
+    after_reset = merge_windows(old, claude_windows(status(13, live_tx), now))["claude-weekly"]
+    assert after_reset["remaining_fraction"] == 0.87 and after_reset["observed_at"] == now
+
+    stale = merge_windows({"claude-weekly": after_reset}, claude_windows(status(62, idle_tx), now + 30))["claude-weekly"]
+    assert stale["remaining_fraction"] == 0.87 and stale["observed_at"] == now
+
+
+def test_a_clearly_newer_claude_quota_observation_wins_in_the_same_window():
+    from mixhub.providers.quota import QuotaObs, merge_quota_obs
+
+    reset = 2_000_000.0
+    statusline = QuotaObs(0.38, reset, 1_000_000.0, True)
+    fetched = QuotaObs(0.87, reset, 1_000_000.0 + 1800, True)  # `cachedUsageUtilization` fetched half an hour later
+    assert merge_quota_obs(statusline, fetched).rem == 0.87
+    assert merge_quota_obs(fetched, statusline).rem == 0.87

@@ -15,6 +15,7 @@ CLAUDE_5H_SECONDS = 5 * 3600
 CLAUDE_WK_SECONDS = 7 * 86400
 CLAUDE_5H_ALIGN = 600        # Anthropic 5h window aligns to 10-minute boundary + 5h (e.g. 17:14:52 -> 22:10:00)
 CLAUDE_SAME_WIN_TOL = 90     # Absorb ±90s resets_at header jitter within the same window
+CLAUDE_NEWER_OBS_SEC = 300   # Within one window, an observation this much newer wins outright (e.g. after a reset)
 
 
 class QuotaObs( tuple ):
@@ -90,8 +91,9 @@ def merge_quota_obs(a: QuotaObs | None, b: QuotaObs | None) -> QuotaObs | None:
     Monotonically merge two quota observations for the same window type (`5h` or `wk`):
       - Later window (`reset` larger by > `CLAUDE_SAME_WIN_TOL`) always wins, preventing an idle session
         from overwriting a newly started 5h window with an expired one.
-      - Within the same window (`|a.reset - b.reset| <= CLAUDE_SAME_WIN_TOL`), smaller `rem` (higher used%)
-        and newer `seen` timestamp win, and `used` is OR-combined.
+      - Within the same window (`|a.reset - b.reset| <= CLAUDE_SAME_WIN_TOL`), an observation seen more than
+        `CLAUDE_NEWER_OBS_SEC` later wins outright (a usage reset raises the remaining share mid-window); otherwise
+        smaller `rem` (higher used%) and newer `seen` timestamp win, and `used` is OR-combined.
     """
     if a is None or b is None:
         return b if a is None else a
@@ -101,6 +103,9 @@ def merge_quota_obs(a: QuotaObs | None, b: QuotaObs | None) -> QuotaObs | None:
         return b
     if b.reset < a.reset - CLAUDE_SAME_WIN_TOL:
         return a
+    if a.seen is not None and b.seen is not None and abs(a.seen - b.seen) > CLAUDE_NEWER_OBS_SEC:
+        newer = a if a.seen > b.seen else b
+        return QuotaObs(newer.rem, max(a.reset, b.reset), newer.seen, a.used or b.used)
     rems = [x for x in (a.rem, b.rem) if x is not None]
     seens = [x for x in (a.seen, b.seen) if x is not None]
     return QuotaObs(

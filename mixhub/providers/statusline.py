@@ -16,6 +16,8 @@ from mixhub.core import paths
 
 # Snapshots whose 5h / weekly reset differs by less than this belong to the same window.
 SAME_WINDOW_SEC = 90
+# A session whose transcript changed this recently just talked to the API, so its `rate_limits` are current.
+LIVE_SEC = 120
 
 
 def claude_quota_path() -> str:
@@ -35,11 +37,16 @@ def _write_json_atomic(path: str, doc: dict) -> None:
 
 
 def claude_windows(status: dict, now: float) -> dict:
-    """`rate_limits.five_hour` / `seven_day` as footer buckets (`claude-5h`, `claude-weekly`)."""
+    """`rate_limits.five_hour` / `seven_day` as footer buckets (`claude-5h`, `claude-weekly`), marked `live` when they
+    come from a session that just talked to the API rather than an idle window re-rendering its last numbers."""
     limits = status.get("rate_limits")
     out = {}
     if not isinstance(limits, dict):
         return out
+    try:
+        live = now - os.path.getmtime(str(status.get("transcript_path") or "")) <= LIVE_SEC
+    except OSError:
+        live = False
     for src, dst in (("five_hour", "claude-5h"), ("seven_day", "claude-weekly")):
         w = limits.get(src)
         if not isinstance(w, dict) or (w.get("used_percentage") is None and w.get("resets_at") is None):
@@ -50,13 +57,17 @@ def claude_windows(status: dict, now: float) -> dict:
             "reset_time": w.get("resets_at"),
             "observed_at": now,
             "started": bool(w.get("resets_at") is not None or used > 0.0),
+            "live": live,
         }
     return out
 
 
 def merge_windows(old: dict, new: dict) -> dict:
-    """Several Claude windows report at once: a snapshot from an older window never overwrites a newer one, and within
-    one window the lower remaining share wins (a session that hasn't refreshed yet reports a stale, higher value)."""
+    """
+    Several Claude windows report at once: a snapshot from an older window never overwrites a newer one. Within one
+    window only a live session's numbers replace what is on record, even when higher than before (a usage reset): an
+    idle window re-renders whatever it last saw, from before or after a reset, so it only fills an empty slot.
+    """
     merged = dict(old)
     for key, cand in new.items():
         prev = merged.get(key)
@@ -65,11 +76,8 @@ def merge_windows(old: dict, new: dict) -> dict:
             if rn < ro - SAME_WINDOW_SEC:
                 continue
             if abs(rn - ro) <= SAME_WINDOW_SEC:
-                entry = dict(cand, reset_time=max(ro, rn))
-                old_rf, new_rf = prev.get("remaining_fraction"), cand.get("remaining_fraction")
-                if isinstance(old_rf, (int, float)) and isinstance(new_rf, (int, float)) and old_rf < new_rf:
-                    entry["remaining_fraction"] = old_rf
-                merged[key] = entry
+                if cand.get("live"):
+                    merged[key] = dict(cand, reset_time=max(ro, rn))
                 continue
         merged[key] = cand
     return merged
