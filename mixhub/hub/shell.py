@@ -1,7 +1,9 @@
 """Subprocess runner and Terminal helpers: `run`, AppleScript quoting, the Terminal focus script, resume commands."""
 from __future__ import annotations
 
+import json
 import os
+import re
 import shlex
 import subprocess
 
@@ -39,6 +41,40 @@ error "No Terminal tab matches this tty"
 end tell''' % apple_string("/dev/" + tty.removeprefix("/dev/"))
 
 
+def _claude_project_dir_name(cwd: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "-", cwd)
+
+
+def resume_cwd(session: dict) -> str:
+    """
+    Folder to resume `session` from. Claude Code looks a transcript up by the folder it runs in, so a session whose
+    cwd moved after it started (`cd` inside it) resumes from a folder its transcript belongs to: the session's own
+    cwd when that matches, else the first cwd its transcript records that does. Other tools use the session's cwd.
+    """
+    home = os.path.expanduser("~")
+    cwd = session.get("cwd") or home
+    path = str(session.get("path") or "")
+    if session.get("tool") != "claude" or not path:
+        return cwd
+    want = os.path.basename(os.path.dirname(path))
+    if _claude_project_dir_name(cwd) == want:
+        return cwd
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            for _, line in zip(range(2000), f):
+                if '"cwd"' not in line:
+                    continue
+                try:
+                    cand = json.loads(line).get("cwd")
+                except ValueError:
+                    continue
+                if isinstance(cand, str) and _claude_project_dir_name(cand) == want and os.path.isdir(cand):
+                    return cand
+    except OSError:
+        pass
+    return home if _claude_project_dir_name(home) == want else cwd
+
+
 def resume_command(session):
     tool, sid = session["tool"], session["id"]
     if session.get("synthetic"):
@@ -46,4 +82,4 @@ def resume_command(session):
     else:
         suffix = {"claude": "claude --resume ", "agy": "agy --conversation ", "codex": "codex resume ",
                   "opencode": "opencode -s "}[tool] + shlex.quote(sid)
-    return "cd " + shlex.quote(session.get("cwd") or os.path.expanduser("~")) + " && " + suffix
+    return "cd " + shlex.quote(resume_cwd(session)) + " && " + suffix

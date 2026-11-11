@@ -13,6 +13,7 @@ from mixhub.tmux import commands as _commands
 from mixhub.tmux import headers as _headers
 from mixhub.tmux import outer as _outer
 from mixhub.tmux import workspace as _workspace
+from mixhub.hub.shell import resume_cwd
 from mixhub.tmux.commands import hubpool_win_name, interactive_resume_cmd
 from mixhub.tmux.headers import _enforce_hubpool_header_height
 from mixhub.tmux.outer import current_outer_session_name, current_pool_session_name
@@ -271,7 +272,7 @@ def activate_session_in_hubpool(
     else:
         msg = ""
 
-    cwd = s.get("cwd") or os.path.expanduser("~")
+    cwd = resume_cwd(s)
     if not os.path.isdir(cwd):
         cwd = os.path.expanduser("~")
     home_dir = getattr(getattr(app, "hub", None), "home", None) if app is not None else None

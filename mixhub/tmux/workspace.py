@@ -16,6 +16,7 @@ from mixhub.core.textwidth import disp_trunc
 from mixhub.i18n import t
 from mixhub.tmux import commands as _commands
 from mixhub.tmux import outer as _outer
+from mixhub.hub.shell import resume_cwd
 from mixhub.tmux.commands import interactive_resume_cmd
 from mixhub.tmux.outer import record_outer_window
 from mixhub.tui.settings import IS_MAC
@@ -429,8 +430,7 @@ def format_exit_keepalive_hint(hub_instance=None, pool_windows: list[str] | None
         wname = f"w-{s.get('tool')}-{str(s.get('id', ''))[:12]}"
         if wname in live_win_set or s.get("isLive"):
             continue
-        cwd = s.get("cwd") or "~"
-        short_cwd = cwd.replace(os.path.expanduser("~"), "~")
+        short_cwd = resume_cwd(s).replace(os.path.expanduser("~"), "~", 1)
         argv = interactive_resume_cmd(s)
         cmd_str = " ".join(shlex.quote(x) for x in argv)
         title = disp_trunc(s.get("title") or s.get("id", "")[:8], 26)

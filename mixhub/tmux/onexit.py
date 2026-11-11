@@ -16,6 +16,7 @@ from mixhub.tmux.session_state import (
     _resolve_promoted_new_session,
     _update_working_set_file,
 )
+from mixhub.tui import diag as _diag
 from mixhub.tui import paths as _paths
 from mixhub.tui import selection as _selection
 
@@ -27,9 +28,11 @@ def handle_cli_on_exit(tool: str, sid: str, wname: str, rc: int = 0, working_set
     1. Hub-initiated hibernate (marker written in the last few minutes): consume the marker and keep the session in
        `Active`. An older marker is removed and the exit handled as below.
     2. Signal termination: preserve the real session in `Active`; never write a normal-exit marker.
-    3. User `/exit` / `Ctrl-D`: drop it from `active_working_set.json` (moves `Active` -> `Recent`), record
-       `data/last_exit/<sid>.json`, point `--reader` at this session's Preview, and close the window
-       (switching to `pool:reader` first when the window was the active one).
+    3. The CLI failing (any other non-zero rc, e.g. `claude --resume` finding no conversation): keep it in `Active`.
+    4. User `/exit` / `Ctrl-D` (rc 0): drop it from `active_working_set.json` (moves `Active` -> `Recent`) and record
+       `data/last_exit/<sid>.json`.
+    Then close the window. Only when it was the window the user was looking at does the view move: `--reader` shows
+    this session's Preview and `pool:reader` is selected first.
     """
     eff_tool, eff_sid, eff_wname = _resolve_promoted_new_session(tool, sid, wname)
     env = dict(os.environ)
@@ -86,33 +89,44 @@ def handle_cli_on_exit(tool: str, sid: str, wname: str, rc: int = 0, working_set
             _clear_last_exit(eff_sid, exit_dir)
         # The server or window may already be gone. Do not navigate during shutdown.
         return 0
-    for drop_id in dict.fromkeys(x for x in (sid, eff_sid) if x):
-        _remove_from_working_set_file(eff_tool or tool, drop_id, working_set_path, reason=f"exit rc={rc}")
-    try:
-        os.makedirs(exit_dir, exist_ok=True)
-        for exit_id in dict.fromkeys(x for x in (eff_sid, sid) if x):
-            tmp = os.path.join(exit_dir, f".{exit_id}.json.tmp.{os.getpid()}")
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump({"ts": time.time(), "rc": rc_i, "tool": str(eff_tool or tool)}, f)
-            os.replace(tmp, os.path.join(exit_dir, f"{exit_id}.json"))
-    except OSError:
-        pass
-    _selection.write_active_selection({"tool": eff_tool or tool, "id": eff_sid or sid, "title": "", "path": ""}, activate_reader=True)
+    is_active = False
+    if eff_wname:
+        try:
+            res = subprocess.run(
+                ["tmux", "-L", "hubpool", "display-message", "-p", "-t", f"pool:{eff_wname}", "#{window_active}"],
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=3,
+            )
+            out = res.stdout if isinstance(getattr(res, "stdout", None), str) else ""
+            is_active = out.strip() == "1"
+        except Exception:
+            is_active = False
+    if rc_i != 0:
+        # The CLI failed (e.g. `claude --resume` found no conversation), the user didn't leave the session: it stays
+        # in `Active`, and a background window failing (a retried delivery, say) never moves the user's view.
+        if eff_sid and not str(eff_sid).startswith("new-"):
+            _update_working_set_file(eff_tool or tool, eff_sid, working_set_path, keep=True)
+        _diag.log_tui_diag("cli_failed", session=f"{eff_tool or tool}:{eff_sid or sid}", rc=rc_i, wname=eff_wname or "")
+    else:
+        for drop_id in dict.fromkeys(x for x in (sid, eff_sid) if x):
+            _remove_from_working_set_file(eff_tool or tool, drop_id, working_set_path, reason=f"exit rc={rc}")
+        try:
+            os.makedirs(exit_dir, exist_ok=True)
+            for exit_id in dict.fromkeys(x for x in (eff_sid, sid) if x):
+                tmp = os.path.join(exit_dir, f".{exit_id}.json.tmp.{os.getpid()}")
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump({"ts": time.time(), "rc": rc_i, "tool": str(eff_tool or tool)}, f)
+                os.replace(tmp, os.path.join(exit_dir, f"{exit_id}.json"))
+        except OSError:
+            pass
+    if is_active or not wname:
+        # Only the window the user was looking at hands the view to this session's Preview (an exit reported without
+        # its window: nothing to tell it by)
+        _selection.write_active_selection({"tool": eff_tool or tool, "id": eff_sid or sid, "title": "", "path": ""}, activate_reader=True)
     if not eff_wname:
         return 0
-    is_active = False
-    try:
-        res = subprocess.run(
-            ["tmux", "-L", "hubpool", "display-message", "-p", "-t", f"pool:{eff_wname}", "#{window_active}"],
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=3,
-        )
-        out = res.stdout if isinstance(getattr(res, "stdout", None), str) else ""
-        is_active = out.strip() == "1"
-    except Exception:
-        is_active = False
     try:
         if is_active:
             subprocess.run(

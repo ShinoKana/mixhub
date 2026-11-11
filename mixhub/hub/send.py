@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import subprocess
 
+from mixhub.hub.shell import resume_cwd
+
 
 def find_controlled_tmux_pane(session: dict, tmux_lister=None) -> str:
     """
@@ -73,7 +75,7 @@ def send_to_session(
     resolved_tool = session["tool"]
     resolved_id = session["id"]
     skey = f"{resolved_tool}:{resolved_id}"
-    cwd = session.get("cwd") or home
+    cwd = resume_cwd(session) if session.get("path") else (session.get("cwd") or home)
 
     clean_files = [str(p).strip() for p in (attachments or []) if str(p).strip()]
     prompt_parts = [str(text or "").strip()] if str(text or "").strip() else []

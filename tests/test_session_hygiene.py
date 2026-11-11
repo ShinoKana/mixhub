@@ -2,6 +2,7 @@
 and the hint for a session still on an older Claude Code."""
 import json
 import os
+import re
 import time
 from types import SimpleNamespace
 from unittest import mock
@@ -219,3 +220,63 @@ def test_doctor_hidden_lists_sessions_hidden_only_by_text_rules():
         {"tool": "claude", "id": "d", "automated": False, "title": "mine"},
     ]
     assert [(s["id"], rule) for s, rule in hidden_by_text_rules(sessions)] == [("b", "<task>")]
+
+
+def test_a_cli_that_fails_to_start_is_not_a_user_exit(tmp_path):
+    """`claude --resume` failing (rc=1, e.g. "No conversation found") must not drop the session to `Recent` or move
+    the user's view; a background retry loop did that every few seconds."""
+    marker_dir, ws_path, patches = _exit_env(tmp_path)
+    try:
+        from mixhub.tui import selection
+
+        assert tui.handle_cli_on_exit("claude", "s1", "w-claude-s1", 1, working_set_path=str(ws_path)) == 0
+        assert "claude:s1" in json.loads(ws_path.read_text(encoding="utf-8"))["sessions"]
+        selection.write_active_selection.assert_not_called()
+    finally:
+        for p in patches:
+            p.stop()
+
+
+def test_a_background_window_exiting_does_not_move_the_users_view(tmp_path):
+    """`/exit` in a window the user is not looking at still drops it to `Recent`, but the selection stays put."""
+    marker_dir, ws_path, patches = _exit_env(tmp_path)
+    try:
+        from mixhub.tui import selection
+
+        # The mocked `tmux display-message` prints nothing: the window is not the active one
+        assert tui.handle_cli_on_exit("claude", "s1", "w-claude-s1", 0, working_set_path=str(ws_path)) == 0
+        assert "claude:s1" not in json.loads(ws_path.read_text(encoding="utf-8"))["sessions"]
+        selection.write_active_selection.assert_not_called()
+    finally:
+        for p in patches:
+            p.stop()
+
+
+def test_the_users_own_exit_still_shows_the_session_preview(tmp_path):
+    marker_dir, ws_path, patches = _exit_env(tmp_path)
+    try:
+        from mixhub.tui import selection
+
+        tui.subprocess.run.return_value = SimpleNamespace(stdout="1\n", returncode=0)
+        assert tui.handle_cli_on_exit("claude", "s1", "w-claude-s1", 0, working_set_path=str(ws_path)) == 0
+        selection.write_active_selection.assert_called_once()
+    finally:
+        for p in patches:
+            p.stop()
+
+
+def test_claude_resumes_from_the_folder_its_transcript_belongs_to(tmp_path):
+    """Claude finds a transcript by the folder it runs in, so a session whose cwd moved after it started must be resumed
+    from the folder it started in, not the last one."""
+    from mixhub.hub.shell import resume_cwd
+
+    start, moved = tmp_path / "start", tmp_path / "start" / ".notes" / "memory"
+    moved.mkdir(parents=True)
+    proj = tmp_path / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(start))
+    proj.mkdir(parents=True)
+    path = proj / "s1.jsonl"
+    path.write_text("\n".join(json.dumps({"type": "user", "cwd": c}) for c in (str(start), str(moved))), encoding="utf-8")
+
+    assert resume_cwd({"tool": "claude", "id": "s1", "cwd": str(moved), "path": str(path)}) == str(start)
+    assert resume_cwd({"tool": "claude", "id": "s1", "cwd": str(start), "path": str(path)}) == str(start)
+    assert resume_cwd({"tool": "codex", "id": "s1", "cwd": str(moved)}) == str(moved)
