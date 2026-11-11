@@ -1213,7 +1213,12 @@ class DiscoveryMixin:
                                 wset_dirty = True
                                 wset_removed.append((key, f"exited rc={exit_rc}"))
                             continue
-                if s.get("isLive"):
+                if s.get("isLive") and not s.get("processes") and not s.get("resident") \
+                        and not int(s.get("activeSubagents") or 0) and key not in wset and s["id"] not in wset:
+                    # Live by a Codex / AGY lock alone, with no interactive process: a one-shot run another agent
+                    # started (`agy -p`, a Codex task). It shows in `Recent` and never enters `Active`.
+                    s["inWorkingSet"] = False
+                elif s.get("isLive"):
                     s["inWorkingSet"] = True
                     if key not in wset:
                         wset.add(key)

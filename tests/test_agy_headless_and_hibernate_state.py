@@ -93,6 +93,20 @@ class AgyHeadlessAndHibernateStateTest(unittest.TestCase):
         self.hub.listing({})
         self.assertNotIn("agy:" + A, self.working_set_keys())
 
+    def test_agy_p_run_past_its_first_prompt_stays_out_of_active(self):
+        """A one-shot `agy -p` another agent started looks like a human session once its prompt lands, but it holds only
+        a presence lock, no interactive process: it must not flash into `Active`, only show up in `Recent`."""
+        self.make_db()
+        self.upsert_row(A, step_count=2, ui_idx=0, title="Summarise the brief")
+        self.write_transcript(A, [
+            {"step_index": 0, "type": "USER_INPUT", "content": "<USER_REQUEST>Summarise the brief</USER_REQUEST>"},
+            {"step_index": 1, "type": "PLANNER_RESPONSE", "content": "working"},
+        ])
+        self.hold_presence_lock(A)
+        self.rescan()
+        self.hub.listing({})
+        self.assertNotIn("agy:" + A, self.working_set_keys())
+
     def test_blank_human_tui_flips_back_after_first_prompt(self):
         self.make_db()
         self.upsert_row(A, step_count=0, ui_idx=-1)
