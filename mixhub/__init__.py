@@ -7,6 +7,6 @@ The README's Architecture section maps the subpackages (`hub`, `providers`, `tui
 """
 from __future__ import annotations
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = ["__version__"]
