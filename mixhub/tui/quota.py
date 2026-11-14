@@ -324,8 +324,9 @@ def get_cli_quota_metrics(
             except Exception:
                 pass
         has_native_cc_cfg = cc_5h is not None or cc_wk is not None
-        k_5h = "claude-5h" if "claude-5h" in quota else ("3p-5h" if not has_native_cc_cfg else "")
-        k_wk = "claude-weekly" if "claude-weekly" in quota else ("3p-weekly" if not has_native_cc_cfg else "")
+        # AGY's `3p-*` buckets are Antigravity's allowance for Claude models inside agy, not the Claude Code plan
+        k_5h = "claude-5h" if "claude-5h" in quota else ""
+        k_wk = "claude-weekly" if "claude-weekly" in quota else ""
 
         def _merge_cc_bucket(
             cached: tuple[int | None, str, str], cached_reset: float | None, b_key: str, kind: str,
@@ -448,7 +449,7 @@ def get_cli_quota_metrics(
                 (cc_5h is not None and cc_5h < 100)
                 or k_5h == "claude-5h"
                 or est_cc_5h
-                or (k_5h != "3p-5h" and cj_session_active is not False)
+                or cj_session_active is not False
                 or bool((quota.get(k_5h) or {}).get("started"))
             )
         )

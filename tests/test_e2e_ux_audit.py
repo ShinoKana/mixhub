@@ -821,8 +821,8 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                 fake_statusline.write_text(
                     json.dumps({
                         "quota": {
-                            "3p-5h": {"remaining_fraction": 0.94, "reset_time": fut_5h},
-                            "3p-weekly": {"remaining_fraction": 0.68, "reset_time": fut_wk},
+                            "claude-5h": {"remaining_fraction": 0.94, "reset_time": fut_5h},
+                            "claude-weekly": {"remaining_fraction": 0.68, "reset_time": fut_wk},
                             "gemini-5h": {"remaining_fraction": 0.82, "reset_time": fut_5h},
                             "gemini-weekly": {"remaining_fraction": 0.66, "reset_time": fut_wk},
                         }
@@ -874,7 +874,7 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                 self.assertTrue(any(c[1] == 1 and c[2] == "   " for c in sel_row))
                 self.assertFalse(any(c[1] == 1 and len(str(c[2])) > 3 for c in sel_row))
 
-                # Verify native `.claude.json` (`cachedUsageUtilization`) takes priority over AGY `3p-5h`/`3p-weekly`
+                # Verify native `.claude.json` (`cachedUsageUtilization`) is the Claude row, never AGY's `3p-5h`/`3p-weekly`
                 claude_cfg = self.home / ".claude.json"
                 claude_cfg.write_text(
                     json.dumps({
@@ -888,8 +888,14 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                     }),
                     encoding="utf-8",
                 )
+                agy_only = self.root / "statusline_agy_only.json"
+                agy_only.write_text(json.dumps({"quota": {
+                    "3p-5h": {"remaining_fraction": 0.94, "reset_time": fut_5h},
+                    "3p-weekly": {"remaining_fraction": 0.68, "reset_time": fut_wk},
+                    "gemini-5h": {"remaining_fraction": 0.82, "reset_time": fut_5h},
+                }}), encoding="utf-8")
                 try:
-                    with patch.dict(os.environ, {"MIXHUB_STATUSLINE_JSON": str(fake_statusline)}):
+                    with patch.dict(os.environ, {"MIXHUB_STATUSLINE_JSON": str(agy_only)}):
                         tui._QUOTA_SUMMARY_CACHE["ts"] = 0.0
                         q_native = {it["key"]: it for it in tui.get_cli_quota_metrics(home_dir=str(self.home))}
                     self.assertIsNone(q_native["cc"]["rem_5h"])
@@ -1977,6 +1983,23 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
                "\x1b[39mctx 0 0% · Gemini 5h 1%\x1b[2m↻13m\x1b[0m\n")
         with patch("tui.subprocess.run", return_value=tui.subprocess.CompletedProcess([], 0, stdout=raw)):
             self.assertEqual(tui._inspect_new_hubpool_window_draft("w-agy-new-1"), "帮我看一下 voicebank 的进度")
+
+    def test_antigravity_claude_model_quota_is_not_claude_code_quota(self):
+        # AGY's `3p-*` buckets are Antigravity's own allowance for Claude models inside agy, not the Claude Code plan.
+        fut = time.time() + 7200
+        fake = self.root / "statusline_3p.json"
+        fake.write_text(json.dumps({"quota": {
+            "3p-5h": {"remaining_fraction": 0.37, "reset_time": fut},
+            "3p-weekly": {"remaining_fraction": 0.21, "reset_time": fut + 86400},
+            "gemini-5h": {"remaining_fraction": 0.82, "reset_time": fut},
+        }}), encoding="utf-8")
+        with patch.dict(os.environ, {"MIXHUB_STATUSLINE_JSON": str(fake)}):
+            tui._QUOTA_SUMMARY_CACHE["ts"] = 0.0
+            metrics = {m["key"]: m for m in tui.get_cli_quota_metrics()}
+        self.assertEqual(metrics["agy"]["rem_5h"], 82)
+        cc = metrics.get("cc") or {}
+        self.assertNotEqual(cc.get("rem_5h"), 37)
+        self.assertNotEqual(cc.get("rem_wk"), 21)
 
     def test_new_window_draft_ignores_agy_auto_mode_placeholder(self):
         # A fresh agy window shows its mode hint in the composer; it is not a draft (it became the row title).
