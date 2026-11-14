@@ -202,7 +202,9 @@ def _inspect_new_hubpool_window_draft(wname: str) -> str:
                  lambda m: m.group(1) if "───" in m.group(1) else "", raw)
     raw = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", raw)
     lines = [ln for ln in raw.splitlines() if ln.strip()]
-    chrome = re.compile(r"\? for shortcuts|esc to dismiss|press up to edit|context left|for shortcuts|auto mode on", re.I)
+    # agy's mode hint (`Auto mode: ... (shift+tab to cycle)`) sits in an empty composer, in a color the dim rule misses
+    chrome = re.compile(r"\? for shortcuts|esc to dismiss|press up to edit|context left|for shortcuts|auto mode on"
+                        r"|shift\+tab to cycle", re.I)
     tail = lines[-8:]
     for idx in range(len(tail) - 1, -1, -1):
         line = tail[idx].strip().strip("│┃").strip()

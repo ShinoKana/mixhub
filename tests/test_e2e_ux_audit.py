@@ -1978,6 +1978,17 @@ class RealUseE2EUXAndPerfAuditTest(unittest.TestCase):
         with patch("tui.subprocess.run", return_value=tui.subprocess.CompletedProcess([], 0, stdout=raw)):
             self.assertEqual(tui._inspect_new_hubpool_window_draft("w-agy-new-1"), "帮我看一下 voicebank 的进度")
 
+    def test_new_window_draft_ignores_agy_auto_mode_placeholder(self):
+        # A fresh agy window shows its mode hint in the composer; it is not a draft (it became the row title).
+        for color in ("38;5;109", "38;2;154;160;166"):
+            raw = ("\x1b[38;5;238m" + "─" * 40 + "\n"
+                   f"\x1b[38;5;111m>\x1b[39m \x1b[{color}mAuto mode: edits & safe commands auto-approved (shift+tab to cycle)\x1b[39m\n"
+                   "\x1b[38;5;238m" + "─" * 40 + "\n"
+                   "\x1b[38;5;109m? for shortcuts\x1b[39m   \x1b[38;5;214mauto\x1b[38;5;109m · Gemini 4 Carbon · high\n")
+            with self.subTest(color=color), \
+                    patch("tui.subprocess.run", return_value=tui.subprocess.CompletedProcess([], 0, stdout=raw)):
+                self.assertEqual(tui._inspect_new_hubpool_window_draft("w-agy-new-1"), "")
+
     def test_active_sidebar_sorts_by_displayed_age_including_new_sessions(self):
         app = self._make_tui()
         now = time.time()

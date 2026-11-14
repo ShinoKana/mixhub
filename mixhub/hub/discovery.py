@@ -42,7 +42,7 @@ from mixhub.hub.titles import _is_generic_placeholder_title
 from mixhub.hub.transcript import json_rows
 from mixhub.hub.util import _file_sig, clean_hostname, read_json, stamp
 from mixhub.i18n import t
-from mixhub.proc.identity import get_boot_id
+from mixhub.proc.identity import get_boot_id, parse_lstart_epoch
 from mixhub.proc.tree import has_agent_ancestor
 
 
@@ -846,12 +846,16 @@ class DiscoveryMixin:
                 if sid and tool in claimed_locks:
                     claimed_locks[tool].add(sid)
                 if not sid and tool in active_locks and active_locks[tool]:
+                    # A run that looks headless counts only if its lock appeared after this process started: a new
+                    # `agy` window must not take over an `agy -p` another agent started before it
+                    started = parse_lstart_epoch(str(p.get("start_time") or "").split()) if p.get("start_time") else None
                     lock_cands = [
                         uid for uid in active_locks[tool]
                         if (tool + ":" + uid) in sessions
                         and uid not in claimed_locks[tool]
                         and (not sessions[tool + ":" + uid].get("automated")
-                             or (tool == "agy" and interactive_agy_candidate(sessions[tool + ":" + uid])))
+                             or (tool == "agy" and interactive_agy_candidate(sessions[tool + ":" + uid])
+                                 and (started is None or active_locks[tool][uid] >= started - 2)))
                     ]
                     if lock_cands:
                         lock_cands.sort(
