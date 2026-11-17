@@ -314,3 +314,24 @@ def test_a_clearly_newer_claude_quota_observation_wins_in_the_same_window():
     fetched = QuotaObs(0.87, reset, 1_000_000.0 + 1800, True)  # `cachedUsageUtilization` fetched half an hour later
     assert merge_quota_obs(statusline, fetched).rem == 0.87
     assert merge_quota_obs(fetched, statusline).rem == 0.87
+
+
+def test_a_reply_bullet_with_an_ellipsis_is_not_a_spinner():
+    """An agy reply listed `• 本机那个 agy -p … Claude Opus 5.5 (High) 后台任务还在跑` above a quota error; the probe took the
+    bullet for a working spinner and showed the session running for hours."""
+    from mixhub.probe.classify import classify_pane_text
+
+    pane = "\n".join([
+        "  • 本机那个 agy -p … Claude Opus 5.5 (High) 后台任务还在跑，已经 39 分钟了（pid 96281）。",
+        "",
+        "> 英语的名字 不是拼音",
+        "",
+        "⚠ Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 146h24m9s.",
+        "─" * 40,
+        ">",
+        "─" * 40,
+        "? for shortcuts                                Claude Opus 5.5 · high",
+    ])
+    assert classify_pane_text(pane)["state"] != "working"
+    for spinner in ("✻ Thinking… (12s · esc to interrupt)", "· Whirring…", "⣻  Running command..."):
+        assert classify_pane_text("\n".join(["output", spinner, "─" * 40, ">", "─" * 40]))["state"] == "working", spinner

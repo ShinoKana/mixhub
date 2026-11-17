@@ -105,7 +105,9 @@ YN_RE = re.compile(
     re.I,
 )
 WORKING_RE = re.compile(r"\b(?:esc|ctrl\+c)\s+(?:to\s+)?(?:interrupt|cancel)\b", re.I)  # OpenCode: "esc interrupt"
-SPINNER_RE = re.compile(r"^[\u2800-\u28ff✻✶✳✢✽·*•]\s*\S[^…\n]{0,48}(?:…|\.\.\.)")
+# A spinner's ellipsis ends the line or is followed by its `(12s · esc to interrupt)`; a reply bullet that merely
+# contains `…` (`• agy -p … Opus 后台任务还在跑`) goes on with more text
+SPINNER_RE = re.compile(r"^[\u2800-\u28ff✻✶✳✢✽·*•]\s*\S[^…\n]{0,48}(?:…|\.\.\.)(?:\s*$|\s+\()")
 COMPLETED_VERB_RE = re.compile(
     r"^[\u2800-\u28ff✻✶✳✢✽·*•]\s*(?:Cooked|Worked|Baked|Brewed|Churned|Cogitated|Thought|Ran|Done)\s+for\s+\d+",
     re.I,
