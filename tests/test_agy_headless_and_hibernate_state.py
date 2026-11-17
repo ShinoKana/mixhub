@@ -125,6 +125,35 @@ class AgyHeadlessAndHibernateStateTest(unittest.TestCase):
         self.assertFalse(sessions["agy:" + A]["isLive"])
         self.assertIn("agy:live-agy-101", sessions)
 
+    def test_agy_turn_that_ended_in_an_error_is_not_working(self):
+        """A quota error ends the turn on screen only: the transcript still ends on the user's prompt. Once the screen
+        is back at an idle prompt, the row must not stay `working` for hours; while the screen shows work, it stays."""
+        self.make_db()
+        db = sqlite3.connect(self.db_path)
+        db.execute("ALTER TABLE conversation_summaries ADD COLUMN status TEXT")
+        db.commit()
+        db.close()
+        self.upsert_row(A, step_count=2, ui_idx=1, title="sugaharu - gemini")
+        db = sqlite3.connect(self.db_path)
+        db.execute("UPDATE conversation_summaries SET status='CASCADE_RUN_STATUS_IDLE'")
+        db.commit()
+        db.close()
+        ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 120))
+        tx = self.write_transcript(A, [
+            {"step_index": 0, "type": "PLANNER_RESPONSE", "content": "earlier answer", "created_at": ts},
+            {"step_index": 1, "type": "USER_INPUT", "content": "<USER_REQUEST>英语的名字 不是拼音</USER_REQUEST>", "created_at": ts},
+        ])
+        os.utime(tx, (time.time() - 120, time.time() - 120))
+        self.hold_presence_lock(A)
+        proc = server.parse_processes(f"101 1 ttys001 2048 01:00 agy --conversation {A}")[0]
+        self.hub.processes = lambda: [proc]
+        self.hub.pane_probe_fn = lambda _s: {"ok": True, "state": "working"}
+        self.assertEqual(self.rescan()["agy:" + A]["agentState"], "working")
+        self.hub.pane_probe_fn = lambda _s: {"ok": True, "state": "idle"}
+        s = self.rescan()["agy:" + A]
+        self.assertTrue(s["isLive"])
+        self.assertNotEqual(s["agentState"], "working")
+
     def test_blank_human_tui_flips_back_after_first_prompt(self):
         self.make_db()
         self.upsert_row(A, step_count=0, ui_idx=-1)

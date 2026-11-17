@@ -109,6 +109,13 @@ class PaneProbeMixin:
             if idle_streak >= 2 and age >= 30.0 and s.get("tailStatus") == "unclosed_tool" and s.get("agentState") == "working":
                 s["agentState"] = "done_idle"
                 s["stateSource"] = "probe"
+            elif (idle_streak >= 2 and age >= 60.0 and s.get("tool") == "agy" and s.get("tailStatus") == "ball_in_model"
+                  and s.get("agentState") == "working"):
+                # agy's screen is back at an idle prompt but its transcript still ends on the user's message: the turn
+                # ended on screen only (a quota or API error is never written to the transcript)
+                s["agentState"] = "done_idle"
+                s["stateSource"] = "probe"
+                s["interrupted"] = True
 
     def refresh_pane_probes_sync(self, sessions=None, runner=None) -> int:
         """Probe live `hubpool` windows (`w-<tool>-<sid[:12]>`) and update `self._pane_probe_cache`."""
