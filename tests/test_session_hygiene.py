@@ -335,3 +335,22 @@ def test_a_reply_bullet_with_an_ellipsis_is_not_a_spinner():
     assert classify_pane_text(pane)["state"] != "working"
     for spinner in ("✻ Thinking… (12s · esc to interrupt)", "· Whirring…", "⣻  Running command..."):
         assert classify_pane_text("\n".join(["output", spinner, "─" * 40, ">", "─" * 40]))["state"] == "working", spinner
+
+
+def test_codex_turn_ended_by_a_usage_limit_is_not_still_running():
+    """Codex writes the limit error only as a `task_complete` event after the last tool output; the row stayed
+    `working` for hours."""
+    from mixhub.hub.transcript import classify_tail_entries, entries
+
+    rows = [
+        {"type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"text": "继续写"}]}},
+        {"type": "response_item", "payload": {"type": "custom_tool_call", "call_id": "c1", "name": "exec", "input": "ls"}},
+        {"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "c1", "output": "ok"}},
+        {"type": "event_msg", "payload": {"type": "task_complete", "last_agent_message": None,
+                                          "error": {"message": "You’ve hit your usage limit. Try again at 9:59 PM."}}},
+    ]
+    got = list(entries(rows, "codex"))
+    assert classify_tail_entries(got, "codex") == "done_idle"
+    assert "usage limit" in got[-1]["text"]
+    # Without the error event the model still owes a reply
+    assert classify_tail_entries(list(entries(rows[:3], "codex")), "codex") == "ball_in_model"

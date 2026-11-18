@@ -127,6 +127,12 @@ def entries(rows, tool, fallback=False):
             elif kind == "GENERIC":
                 name, cid = pending.pop(0) if pending else (t("transcript.tool_result"), "")
                 yield item("tool", printable(row.get("content", "")), "tool_result", name, cid)
+        elif tool == "codex" and row.get("type") == "event_msg":
+            # A turn that failed (usage limit, API error) ends with only this event: show the error as its reply
+            ev = row.get("payload") or {}
+            err = ev.get("error") if ev.get("type") == "task_complete" else None
+            if isinstance(err, dict) and err.get("message"):
+                yield item("assistant", str(err["message"]))
         elif tool == "codex" and row.get("type") == "response_item":
             msg = row.get("payload") or {}
             kind, role = msg.get("type"), msg.get("role")
