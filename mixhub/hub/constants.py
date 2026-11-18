@@ -39,4 +39,4 @@ _OPEN_PATH_PATTERNS = {
 TOOLS = {"claude": "C", "agy": "A", "codex": "X", "opencode": "O"}
 # An Active entry with no process and no activity for this long moves to Recent (12h idle hibernate + 12h)
 WORKING_SET_IDLE_EXPIRE_SEC = 24 * 3600
-INDEX_CACHE_SCHEMA_VERSION = 16  # 16: a trailing /compact summary no longer means the model owes a reply
+INDEX_CACHE_SCHEMA_VERSION = 17  # 17: a Codex task_complete error ends the turn
