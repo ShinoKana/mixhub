@@ -83,8 +83,19 @@ class PaneProbeMixin:
         return res, int(entry.get("idle_streak") or 0)
 
     def _apply_pane_probe_state(self, key: str, s: dict, age: float, now_mono: float) -> None:
+        ended = getattr(self, "_ended_on_screen", None)
+        if ended is None:
+            ended = self._ended_on_screen = {}
+        tx_ts = s.get("transcriptAt") or s.get("updatedAt")
+        if key in ended and ended[key] != tx_ts:
+            ended.pop(key, None)
         probe_res, idle_streak = self._get_fresh_pane_probe(key, s, now_mono)
         if not probe_res:
+            if key in ended and s.get("agentState") == "working" and s.get("tailStatus") == "ball_in_model":
+                # Turn already seen ending on screen, transcript unchanged since
+                s["agentState"] = "done_idle"
+                s["stateSource"] = "probe"
+                s["interrupted"] = True
             return
         p_state = str(probe_res.get("state") or "")
         if p_state in ("awaiting_permission", "awaiting_trust", "awaiting_question"):
@@ -116,6 +127,7 @@ class PaneProbeMixin:
                 s["agentState"] = "done_idle"
                 s["stateSource"] = "probe"
                 s["interrupted"] = True
+                ended[key] = tx_ts
 
     def refresh_pane_probes_sync(self, sessions=None, runner=None) -> int:
         """Probe live `hubpool` windows (`w-<tool>-<sid[:12]>`) and update `self._pane_probe_cache`."""

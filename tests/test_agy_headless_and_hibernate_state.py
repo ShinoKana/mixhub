@@ -153,6 +153,17 @@ class AgyHeadlessAndHibernateStateTest(unittest.TestCase):
         s = self.rescan()["agy:" + A]
         self.assertTrue(s["isLive"])
         self.assertNotEqual(s["agentState"], "working")
+        # No fresh screen probe on a later scan: the turn stays ended (flipping back made the row unread again)
+        self.hub.pane_probe_fn = lambda _s: None
+        self.assertNotEqual(self.rescan()["agy:" + A]["agentState"], "working")
+        # A new prompt in the transcript is a new turn
+        ts2 = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        self.write_transcript(A, [
+            {"step_index": 0, "type": "PLANNER_RESPONSE", "content": "earlier answer", "created_at": ts},
+            {"step_index": 1, "type": "USER_INPUT", "content": "<USER_REQUEST>英语的名字 不是拼音</USER_REQUEST>", "created_at": ts},
+            {"step_index": 2, "type": "USER_INPUT", "content": "<USER_REQUEST>再试一次</USER_REQUEST>", "created_at": ts2},
+        ])
+        self.assertEqual(self.rescan()["agy:" + A]["agentState"], "working")
 
     def test_blank_human_tui_flips_back_after_first_prompt(self):
         self.make_db()
